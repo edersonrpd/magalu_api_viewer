@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, PriceDetail, StockDetail } from '../types';
 import { getStatusConfig, formatDate, formatValue } from '../utils';
 import { 
@@ -14,7 +14,6 @@ interface ProductVisualizerProps {
 
 export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, price, stock, onBack }) => {
   const status = getStatusConfig(product.status);
-  const mainImage = product.images?.[0]?.reference;
   const marketplaceUrl = product.url_marketplace?.find(u => u.channel === 'magazineluiza')?.url;
   
   // Find EAN/GTIN if available
@@ -22,6 +21,17 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
   
   // Extract dimensions (usually the first element in the array for the product itself)
   const dims = product.dimensions?.[0];
+
+  // Image Gallery State
+  const [activeImage, setActiveImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (product.images && product.images.length > 0) {
+      setActiveImage(product.images[0].reference);
+    } else {
+      setActiveImage(null);
+    }
+  }, [product]);
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
@@ -39,16 +49,45 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
       <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative">
         <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-500 to-blue-700"></div>
         
-        <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8">
-          {/* Product Image */}
-          <div className="flex-shrink-0">
-             <div className="w-32 h-32 md:w-40 md:h-40 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden shadow-inner p-2">
-                {mainImage ? (
-                  <img src={mainImage} alt={product.title} className="w-full h-full object-contain" />
+        <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8">
+          
+          {/* Product Image Gallery Section */}
+          <div className="flex-shrink-0 flex flex-col gap-3 md:w-80">
+             {/* Main Image */}
+             <div className="w-full aspect-square bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden shadow-inner p-4 relative group">
+                {activeImage ? (
+                  <img 
+                    src={activeImage} 
+                    alt={product.title} 
+                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" 
+                  />
                 ) : (
-                  <ImageOff size={40} className="text-gray-300" />
+                  <ImageOff size={48} className="text-gray-300" />
                 )}
              </div>
+
+             {/* Thumbnails */}
+             {product.images && product.images.length > 1 && (
+               <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar px-1">
+                 {product.images.map((img, idx) => (
+                   <button
+                     key={idx}
+                     onClick={() => setActiveImage(img.reference)}
+                     className={`flex-shrink-0 w-16 h-16 border rounded-md overflow-hidden p-1 bg-white transition-all ${
+                       activeImage === img.reference 
+                         ? 'border-blue-500 ring-2 ring-blue-100 shadow-sm' 
+                         : 'border-gray-200 hover:border-blue-300 opacity-70 hover:opacity-100'
+                     }`}
+                   >
+                     <img 
+                       src={img.reference} 
+                       alt={`Thumbnail ${idx + 1}`} 
+                       className="w-full h-full object-contain"
+                     />
+                   </button>
+                 ))}
+               </div>
+             )}
           </div>
 
           {/* Main Info */}
@@ -223,9 +262,10 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
           <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">
             Descrição
           </h3>
-          <div className="prose prose-sm text-gray-600 max-w-none">
-             {product.description}
-          </div>
+          <div 
+             className="prose prose-sm text-gray-600 max-w-none"
+             dangerouslySetInnerHTML={{ __html: product.description }}
+          />
         </div>
       )}
     </div>
