@@ -181,27 +181,27 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       {/* Navbar / Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+      <header className="bg-magalu-blue shadow-lg sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
           
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-lg text-white shadow-blue-200">
-                <ShoppingBag size={24} />
+              <div className="bg-white p-2 rounded-lg text-magalu-blue shadow-sm">
+                <ShoppingBag size={24} strokeWidth={2.5} />
               </div>
               <div>
-                 <h1 className="text-xl font-bold text-gray-900 tracking-tight">Magalu Order Viewer</h1>
+                 <h1 className="text-xl font-bold text-white tracking-tight">Magalu API Viewer</h1>
               </div>
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex p-1 bg-gray-100 rounded-lg overflow-x-auto">
+            <div className="flex p-1 bg-blue-800/30 rounded-lg overflow-x-auto">
               <button
                 onClick={() => handleTabChange('search')}
                 className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap ${
                   activeTab === 'search' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-magalu-blue shadow-sm' 
+                    : 'text-blue-100 hover:text-white hover:bg-white/10'
                 }`}
               >
                 <Search size={16} /> Buscar Pedido
@@ -210,8 +210,8 @@ const App: React.FC = () => {
                 onClick={() => handleTabChange('list')}
                 className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap ${
                   activeTab === 'list' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-magalu-blue shadow-sm' 
+                    : 'text-blue-100 hover:text-white hover:bg-white/10'
                 }`}
               >
                 <List size={16} /> Listar Pedidos
@@ -220,8 +220,8 @@ const App: React.FC = () => {
                 onClick={() => handleTabChange('products')}
                 className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap ${
                   activeTab === 'products' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-magalu-blue shadow-sm' 
+                    : 'text-blue-100 hover:text-white hover:bg-white/10'
                 }`}
               >
                 <Package size={16} /> Produtos
@@ -232,7 +232,7 @@ const App: React.FC = () => {
           {/* Global Token Input */}
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-               <Key size={16} className="text-gray-400" />
+               <Key size={16} className="text-magalu-blue" />
              </div>
              <input 
                type="password" 
@@ -242,11 +242,14 @@ const App: React.FC = () => {
                  localStorage.setItem('magalu_api_token', e.target.value);
                }}
                placeholder="Insira seu Token Magalu (Bearer) aqui para habilitar as consultas..."
-               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+               className="w-full pl-10 pr-4 py-2.5 bg-white border-none rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:ring-4 focus:ring-magalu-yellow/50 transition-all shadow-sm"
              />
           </div>
 
         </div>
+        
+        {/* Decorative bottom rainbow line often seen in Magalu branding */}
+        <div className="h-1 w-full bg-gradient-to-r from-magalu-yellow via-magalu-blue to-magalu-green"></div>
       </header>
 
       {/* Main Content */}
@@ -287,8 +290,8 @@ const App: React.FC = () => {
 
             {!order && !loading && !error && (
                 <div className="text-center py-20 opacity-50">
-                    <div className="inline-block p-6 bg-gray-100 rounded-full mb-4">
-                        <ShoppingBag size={48} className="text-gray-400" />
+                    <div className="inline-block p-6 bg-white shadow-sm border border-gray-100 rounded-full mb-4">
+                        <ShoppingBag size={48} className="text-magalu-blue" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-600">Nenhum pedido carregado</h3>
                     <p className="text-gray-400">Insira o Código do Pedido abaixo para visualizar.</p>
@@ -306,7 +309,7 @@ const App: React.FC = () => {
                <button
                   onClick={() => handleListFetch(0)}
                   disabled={listLoading || !token}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium transition-colors flex items-center gap-2"
+                  className="px-6 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium transition-colors flex items-center gap-2"
                >
                  {listLoading ? <RefreshCw size={18} className="animate-spin" /> : <List size={18} />}
                  {listLoading ? 'Carregando...' : 'Atualizar Lista'}
@@ -349,8 +352,8 @@ const App: React.FC = () => {
                  ) : (
                    !listLoading && !listError && (
                     <div className="text-center py-20 opacity-50">
-                        <div className="inline-block p-6 bg-gray-100 rounded-full mb-4">
-                            <List size={48} className="text-gray-400" />
+                        <div className="inline-block p-6 bg-white shadow-sm border border-gray-100 rounded-full mb-4">
+                            <List size={48} className="text-magalu-blue" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-600">Lista vazia</h3>
                         <p className="text-gray-400">
@@ -384,12 +387,12 @@ const App: React.FC = () => {
                         value={productSearchSku}
                         onChange={(e) => setProductSearchSku(e.target.value)}
                         placeholder="Digite o SKU do produto..."
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-magalu-blue focus:border-magalu-blue"
                       />
                       <button 
                         type="submit"
                         disabled={singleProductLoading || !token}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 font-medium flex items-center gap-2"
+                        className="px-4 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 font-medium flex items-center gap-2"
                       >
                          {singleProductLoading ? <RefreshCw className="animate-spin" size={18}/> : <Search size={18} />}
                          Buscar SKU
@@ -491,8 +494,8 @@ const App: React.FC = () => {
             ) : (
               !productsLoading && !productsError && !singleProductLoading && !singleProductError && (
                 <div className="text-center py-20 opacity-50">
-                    <div className="inline-block p-6 bg-gray-100 rounded-full mb-4">
-                        <Package size={48} className="text-gray-400" />
+                    <div className="inline-block p-6 bg-white shadow-sm border border-gray-100 rounded-full mb-4">
+                        <Package size={48} className="text-magalu-blue" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-600">Área de Produtos</h3>
                     <p className="text-gray-400">
