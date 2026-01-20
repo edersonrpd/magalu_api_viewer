@@ -171,7 +171,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
         </div>
       </div>
       
-      {/* Tooltip Component - Place outside the loop */}
+      {/* Tooltip Component */}
       <Tooltip 
         id="order-row-tooltip" 
         style={{ 

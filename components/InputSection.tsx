@@ -12,15 +12,22 @@ export const InputSection: React.FC<InputSectionProps> = ({ onSearch, loading })
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    let cleanedCode = orderCode.trim();
-    cleanedCode = cleanedCode.replace(/-\d+$/, '');
-    cleanedCode = cleanedCode.replace(/^LU-/i, '');
+    // Split by comma, clean each part, filter empty, and join back
+    const codes = orderCode.split(',').map(code => {
+      let cleaned = code.trim();
+      cleaned = cleaned.replace(/-\d+$/, ''); // Remove suffix like -1
+      cleaned = cleaned.replace(/^LU-/i, ''); // Remove prefix LU-
+      return cleaned;
+    }).filter(code => code.length > 0);
 
-    if (cleanedCode !== orderCode) {
-      setOrderCode(cleanedCode);
+    const cleanedInput = codes.join(', ');
+
+    if (cleanedInput !== orderCode) {
+      setOrderCode(cleanedInput);
     }
 
-    onSearch(cleanedCode);
+    // Pass the comma-separated string to parent; parent handles the bulk fetch logic
+    onSearch(cleanedInput);
   };
 
   return (
@@ -28,7 +35,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onSearch, loading })
       <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="orderCode" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-              <Package size={16} /> Código do Pedido
+              <Package size={16} /> Código(s) do Pedido
             </label>
             <div className="flex gap-2">
               <input
@@ -36,7 +43,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onSearch, loading })
                 type="text"
                 value={orderCode}
                 onChange={(e) => setOrderCode(e.target.value)}
-                placeholder="Ex: 1502870666843360"
+                placeholder="Ex: 1502870666843360, 2134567890123456..."
                 className="flex-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 required
               />
@@ -59,7 +66,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onSearch, loading })
               </button>
             </div>
             <p className="text-xs text-gray-400">
-               Remove automaticamente prefixos "LU-" e sufixos de entrega (ex: -1).
+               Separe múltiplos códigos por vírgula. Removemos automaticamente prefixos "LU-" e sufixos de entrega.
             </p>
           </div>
       </form>

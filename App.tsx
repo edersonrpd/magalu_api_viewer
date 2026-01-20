@@ -11,14 +11,21 @@ import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, Refr
 
 type Tab = 'search' | 'list' | 'products';
 
+interface SearchedProductData {
+  product: Product;
+  price?: PriceDetail;
+  stock?: StockDetail;
+}
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('search');
   
   // Global State
   const [token, setToken] = useState('');
 
-  // Search Mode State
-  const [order, setOrder] = useState<Order | null>(null);
+  // Search Mode State (Orders)
+  // Now supports multiple orders
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -36,9 +43,8 @@ const App: React.FC = () => {
   
   // Product Search State
   const [productSearchSku, setProductSearchSku] = useState('');
-  const [singleProduct, setSingleProduct] = useState<Product | null>(null);
-  const [singleProductPrice, setSingleProductPrice] = useState<PriceDetail | undefined>(undefined);
-  const [singleProductStock, setSingleProductStock] = useState<StockDetail | undefined>(undefined);
+  // Now supports multiple products
+  const [searchedProducts, setSearchedProducts] = useState<SearchedProductData[]>([]);
   const [singleProductLoading, setSingleProductLoading] = useState(false);
   const [singleProductError, setSingleProductError] = useState<string | null>(null);
 
@@ -50,26 +56,58 @@ const App: React.FC = () => {
     if (savedToken) setToken(savedToken);
   }, []);
 
-  const handleSearch = async (orderCode: string) => {
+  // --- ORDER SEARCH HANDLER ---
+  const handleSearch = async (inputString: string) => {
     if (!token) {
       setError('Por favor, insira o Token Magalu no topo da página.');
       return;
     }
     setLoading(true);
     setError(null);
-    setOrder(null);
+    setOrders([]);
     setShowRawJson(false);
 
+    // Split input by comma and cleanup
+    const orderCodes = inputString.split(',').map(s => s.trim()).filter(Boolean);
+
+    if (orderCodes.length === 0) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const data = await fetchOrder(orderCode, token);
-      setOrder(data);
+      // Use Promise.allSettled to allow some requests to fail while others succeed
+      const results = await Promise.allSettled(
+        orderCodes.map(code => fetchOrder(code, token))
+      );
+
+      const successfulOrders: Order[] = [];
+      const errors: string[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulOrders.push(result.value);
+        } else {
+          errors.push(`Pedido ${orderCodes[index]}: ${result.reason?.message || 'Erro desconhecido'}`);
+        }
+      });
+
+      setOrders(successfulOrders);
+
+      if (errors.length > 0) {
+        setError(errors.join(' | '));
+      } else if (successfulOrders.length === 0) {
+         setError('Nenhum pedido encontrado.');
+      }
+
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro desconhecido ao buscar o pedido.');
+      setError(err.message || 'Ocorreu um erro fatal ao buscar os pedidos.');
     } finally {
       setLoading(false);
     }
   };
 
+  // --- LIST ORDERS HANDLER ---
   const handleListFetch = async (offset: number = 0) => {
     if (!token) {
       setListError('Por favor, insira o Token Magalu no topo da página.');
@@ -78,7 +116,7 @@ const App: React.FC = () => {
     
     setListLoading(true);
     setListError(null);
-    setViewingOrderFromList(null); // Reset detail view when pagination changes
+    setViewingOrderFromList(null);
 
     try {
       const data = await fetchOrdersList(token, offset);
@@ -90,6 +128,7 @@ const App: React.FC = () => {
     }
   };
 
+  // --- PRODUCT LIST HANDLER ---
   const handleProductsFetch = async (offset: number = 0, newLimit?: number) => {
     if (!token) {
       setProductsError('Por favor, insira o Token Magalu no topo da página.');
@@ -103,7 +142,7 @@ const App: React.FC = () => {
 
     setProductsLoading(true);
     setProductsError(null);
-    setSingleProduct(null); // Clear single search when listing
+    setSearchedProducts([]); // Clear single search when listing
 
     try {
       const data = await fetchPortfolio(token, offset, limitToUse);
@@ -115,6 +154,7 @@ const App: React.FC = () => {
     }
   };
 
+  // --- SINGLE (OR MULTI) PRODUCT SEARCH HANDLER ---
   const handleProductSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) {
@@ -126,40 +166,62 @@ const App: React.FC = () => {
     setSingleProductLoading(true);
     setProductsError(null);
     setSingleProductError(null);
-    setSingleProduct(null);
-    setSingleProductPrice(undefined);
-    setSingleProductStock(undefined);
+    setSearchedProducts([]);
     setShowRawJson(false);
 
+    const skus = productSearchSku.split(',').map(s => s.trim()).filter(Boolean);
+
+    if (skus.length === 0) {
+      setSingleProductLoading(false);
+      return;
+    }
+
     try {
-      // Fetch Product, Price and Stock in parallel.
-      const sku = productSearchSku.trim();
-      const productPromise = fetchProduct(sku, token);
-      const pricePromise = fetchProductPrice(sku, token);
-      const stockPromise = fetchProductStock(sku, token);
+      // Parallel fetch for multiple SKUs
+      const results = await Promise.allSettled(
+        skus.map(async (sku) => {
+          // Inner parallel fetch for product details
+          const [product, priceResponse, stockResponse] = await Promise.all([
+             fetchProduct(sku, token),
+             fetchProductPrice(sku, token),
+             fetchProductStock(sku, token)
+          ]);
 
-      const [product, priceResponse, stockResponse] = await Promise.all([productPromise, pricePromise, stockPromise]);
-      
-      setSingleProduct(product);
-      
-      // Handle Price
-      if (priceResponse && priceResponse.results && priceResponse.results.length > 0) {
-        setSingleProductPrice(priceResponse.results[0]);
-      } else {
-        setSingleProductPrice(undefined);
-      }
+          let price: PriceDetail | undefined = undefined;
+          if (priceResponse && priceResponse.results && priceResponse.results.length > 0) {
+            price = priceResponse.results[0];
+          }
 
-      // Handle Stock
-      if (stockResponse && stockResponse.results && stockResponse.results.length > 0) {
-        // Try to find one with type 'AVAILABLE', otherwise take first
-        const availableStock = stockResponse.results.find(s => s.type === 'AVAILABLE') || stockResponse.results[0];
-        setSingleProductStock(availableStock);
-      } else {
-        setSingleProductStock(undefined);
+          let stock: StockDetail | undefined = undefined;
+          if (stockResponse && stockResponse.results && stockResponse.results.length > 0) {
+             stock = stockResponse.results.find(s => s.type === 'AVAILABLE') || stockResponse.results[0];
+          }
+
+          return { product, price, stock };
+        })
+      );
+
+      const successfulProducts: SearchedProductData[] = [];
+      const errors: string[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulProducts.push(result.value);
+        } else {
+          errors.push(`SKU ${skus[index]}: ${result.reason?.message || 'Erro ao carregar'}`);
+        }
+      });
+
+      setSearchedProducts(successfulProducts);
+
+      if (errors.length > 0) {
+        setSingleProductError(errors.join(' | '));
+      } else if (successfulProducts.length === 0) {
+        setSingleProductError('Nenhum produto encontrado.');
       }
 
     } catch (err: any) {
-      setSingleProductError(err.message || 'Erro ao buscar produto.');
+      setSingleProductError(err.message || 'Erro fatal ao buscar produtos.');
     } finally {
       setSingleProductLoading(false);
     }
@@ -270,8 +332,8 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {order && (
-              <div className="animate-fade-in-up">
+            {orders.length > 0 && (
+              <div className="animate-fade-in-up space-y-12">
                 <div className="flex justify-end mb-4">
                    <button 
                     onClick={() => setShowRawJson(!showRawJson)}
@@ -282,19 +344,25 @@ const App: React.FC = () => {
                    </button>
                 </div>
 
-                <OrderVisualizer order={order} token={token} />
-
-                {showRawJson && <RawJsonViewer data={order} />}
+                {orders.map((orderItem, idx) => (
+                  <div key={orderItem.id} className="relative">
+                    {idx > 0 && (
+                      <div className="absolute -top-6 left-0 right-0 h-px bg-gray-300 border-t border-dashed border-gray-400"></div>
+                    )}
+                    <OrderVisualizer order={orderItem} token={token} />
+                    {showRawJson && <RawJsonViewer data={orderItem} />}
+                  </div>
+                ))}
               </div>
             )}
 
-            {!order && !loading && !error && (
+            {orders.length === 0 && !loading && !error && (
                 <div className="text-center py-20 opacity-50">
                     <div className="inline-block p-6 bg-white shadow-sm border border-gray-100 rounded-full mb-4">
                         <ShoppingBag size={48} className="text-magalu-blue" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-600">Nenhum pedido carregado</h3>
-                    <p className="text-gray-400">Insira o Código do Pedido abaixo para visualizar.</p>
+                    <p className="text-gray-400">Insira o(s) Código(s) do Pedido abaixo para visualizar.</p>
                 </div>
             )}
           </div>
@@ -378,7 +446,7 @@ const App: React.FC = () => {
                   {/* Search Form */}
                   <form onSubmit={handleProductSearch} className="w-full md:flex-1">
                     <label htmlFor="skuSearch" className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                       <Box size={16} /> Pesquisar SKU Individual
+                       <Box size={16} /> Pesquisar SKU(s)
                     </label>
                     <div className="flex gap-2">
                       <input 
@@ -386,7 +454,7 @@ const App: React.FC = () => {
                         type="text" 
                         value={productSearchSku}
                         onChange={(e) => setProductSearchSku(e.target.value)}
-                        placeholder="Digite o SKU do produto..."
+                        placeholder="Ex: SKU123, SKU456..."
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-magalu-blue focus:border-magalu-blue"
                       />
                       <button 
@@ -395,9 +463,12 @@ const App: React.FC = () => {
                         className="px-4 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 font-medium flex items-center gap-2"
                       >
                          {singleProductLoading ? <RefreshCw className="animate-spin" size={18}/> : <Search size={18} />}
-                         Buscar SKU
+                         Buscar
                       </button>
                     </div>
+                     <p className="text-xs text-gray-400 mt-1">
+                        Separe múltiplos SKUs por vírgula.
+                     </p>
                   </form>
 
                   <div className="hidden md:block w-px h-12 bg-gray-200 mx-2"></div>
@@ -428,17 +499,10 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* View Logic: Single Product OR List */}
-            {singleProduct ? (
-              <div className="animate-fade-in-up">
-                 <ProductVisualizer 
-                    product={singleProduct} 
-                    price={singleProductPrice}
-                    stock={singleProductStock}
-                    onBack={() => setSingleProduct(null)} 
-                 />
-                 <div className="mt-8">
-                   <div className="flex justify-end mb-2">
+            {/* View Logic: Searched Products OR List */}
+            {searchedProducts.length > 0 ? (
+              <div className="animate-fade-in-up space-y-12">
+                 <div className="flex justify-end mb-2">
                      <button 
                        onClick={() => setShowRawJson(!showRawJson)}
                        className="text-xs text-gray-500 hover:text-blue-600 underline flex items-center gap-1"
@@ -446,28 +510,41 @@ const App: React.FC = () => {
                        {showRawJson ? <EyeOff size={12} /> : <Eye size={12} />}
                        {showRawJson ? 'Ocultar JSON' : 'Ver JSON Bruto'}
                      </button>
-                   </div>
-                   {showRawJson && (
-                     <div className="space-y-4">
-                        <div>
-                          <p className="text-xs font-bold text-gray-500 mb-1">Produto</p>
-                          <RawJsonViewer data={singleProduct} />
-                        </div>
-                        {singleProductPrice && (
-                          <div>
-                            <p className="text-xs font-bold text-gray-500 mb-1">Preço</p>
-                            <RawJsonViewer data={singleProductPrice} />
-                          </div>
-                        )}
-                        {singleProductStock && (
-                          <div>
-                            <p className="text-xs font-bold text-gray-500 mb-1">Estoque</p>
-                            <RawJsonViewer data={singleProductStock} />
-                          </div>
-                        )}
-                     </div>
-                   )}
                  </div>
+                 
+                 {searchedProducts.map((item, idx) => (
+                    <div key={item.product.sku} className="relative">
+                        {idx > 0 && (
+                          <div className="absolute -top-6 left-0 right-0 h-px bg-gray-300 border-t border-dashed border-gray-400"></div>
+                        )}
+                        <ProductVisualizer 
+                            product={item.product} 
+                            price={item.price}
+                            stock={item.stock}
+                            onBack={() => setSearchedProducts([])} 
+                        />
+                        {showRawJson && (
+                            <div className="mt-4 space-y-4">
+                                <div>
+                                <p className="text-xs font-bold text-gray-500 mb-1">Produto ({item.product.sku})</p>
+                                <RawJsonViewer data={item.product} />
+                                </div>
+                                {item.price && (
+                                <div>
+                                    <p className="text-xs font-bold text-gray-500 mb-1">Preço</p>
+                                    <RawJsonViewer data={item.price} />
+                                </div>
+                                )}
+                                {item.stock && (
+                                <div>
+                                    <p className="text-xs font-bold text-gray-500 mb-1">Estoque</p>
+                                    <RawJsonViewer data={item.stock} />
+                                </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                 ))}
               </div>
             ) : productsData ? (
               <>
@@ -499,7 +576,7 @@ const App: React.FC = () => {
                     </div>
                     <h3 className="text-lg font-medium text-gray-600">Área de Produtos</h3>
                     <p className="text-gray-400">
-                      Pesquise um SKU específico acima ou clique em "Listar Todos".
+                      Pesquise SKU(s) acima ou clique em "Listar Todos".
                     </p>
                 </div>
               )
@@ -514,23 +591,35 @@ const App: React.FC = () => {
         <div className="font-medium flex items-center gap-2">
            Visualizador API Magalu <span className="hidden sm:inline">— Utilitário Local</span>
         </div>
-        <div className="flex items-center gap-4 sm:gap-6">
-           <a 
-             href="https://ml-order-explorer.vercel.app/"
-             target="_blank"
-             rel="noopener noreferrer" 
-             className="flex items-center gap-1.5 font-medium text-yellow-600 hover:text-yellow-700 transition-colors"
-           >
-              <ExternalLink size={14} /> Mercado Livre
-           </a>
-           <a 
-             href="https://shopee-api-viewer.vercel.app/"
-             target="_blank"
-             rel="noopener noreferrer" 
-             className="flex items-center gap-1.5 font-medium text-orange-500 hover:text-orange-600 transition-colors"
-           >
-              <ExternalLink size={14} /> Shopee
-           </a>
+        
+        <div className="flex items-center gap-4 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider hidden sm:block">
+                Navegar para:
+            </span>
+            
+            <a 
+                href="https://ml-order-explorer.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-yellow-600 hover:text-yellow-700 font-semibold transition-colors group"
+                title="Ir para Mercado Livre API Explorer"
+            >
+                Mercado Livre
+                <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+
+            <div className="w-px h-3 bg-gray-300"></div>
+
+            <a 
+                href="https://shopee-api-viewer.vercel.app/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-orange-500 hover:text-orange-600 font-semibold transition-colors group"
+                title="Ir para Shopee API Explorer"
+            >
+                Shopee
+                <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </a>
         </div>
       </footer>
     </div>
