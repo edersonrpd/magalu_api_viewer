@@ -5,12 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="https://vitejs.dev/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Magalu Order Viewer</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="https://esm.sh/react-tooltip@5.26.3/dist/react-tooltip.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
             colors: {
               magalu: {
                 blue: '#0086FF',
@@ -22,6 +31,11 @@
         }
       }
     </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -34,7 +48,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-50 text-gray-900">
+  <body class="bg-gray-50 text-gray-900 font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
