@@ -7,7 +7,7 @@ import { ProductsList } from './components/ProductsList';
 import { ProductVisualizer } from './components/ProductVisualizer';
 import { fetchOrder, fetchOrdersList, fetchPortfolio, fetchProduct, fetchProductPrice, fetchProductStock } from './services/magaluService';
 import { Order, OrdersListResponse, PortfolioResponse, Product, PriceDetail, StockDetail } from './types';
-import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box } from 'lucide-react';
+import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink } from 'lucide-react';
 
 type Tab = 'search' | 'list' | 'products';
 
@@ -179,7 +179,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navbar / Header */}
       <header className="bg-magalu-blue shadow-lg sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
@@ -508,6 +508,31 @@ const App: React.FC = () => {
         )}
 
       </main>
+
+      {/* Footer */}
+      <footer className="fixed bottom-0 w-full bg-white border-t border-gray-200 py-3 px-4 md:px-8 text-sm text-gray-500 flex flex-col md:flex-row justify-between items-center gap-3 z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        <div className="font-medium flex items-center gap-2">
+           Visualizador API Magalu <span className="hidden sm:inline">— Utilitário Local</span>
+        </div>
+        <div className="flex items-center gap-4 sm:gap-6">
+           <a 
+             href="https://ml-order-explorer.vercel.app/"
+             target="_blank"
+             rel="noopener noreferrer" 
+             className="flex items-center gap-1.5 font-medium text-yellow-600 hover:text-yellow-700 transition-colors"
+           >
+              <ExternalLink size={14} /> Mercado Livre
+           </a>
+           <a 
+             href="https://shopee-api-viewer.vercel.app/"
+             target="_blank"
+             rel="noopener noreferrer" 
+             className="flex items-center gap-1.5 font-medium text-orange-500 hover:text-orange-600 transition-colors"
+           >
+              <ExternalLink size={14} /> Shopee
+           </a>
+        </div>
+      </footer>
     </div>
   );
 };
