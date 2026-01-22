@@ -252,7 +252,7 @@ const App: React.FC = () => {
                 <ShoppingBag size={24} strokeWidth={2.5} />
               </div>
               <div>
-                 <h1 className="text-xl font-bold text-white tracking-tight">Magalu API Viewer</h1>
+                 <h1 className="text-xl font-bold text-white tracking-tight">Magalu API Explorer</h1>
               </div>
             </div>
 
@@ -589,7 +589,7 @@ const App: React.FC = () => {
       {/* Footer */}
       <footer className="fixed bottom-0 w-full bg-white border-t border-gray-200 py-3 px-4 md:px-8 text-sm text-gray-500 flex flex-col md:flex-row justify-between items-center gap-3 z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
         <div className="font-medium flex items-center gap-2">
-           Visualizador API Magalu <span className="hidden sm:inline">— Utilitário Local</span>
+           Magalu API Explorer <span className="hidden sm:inline">— Utilitário Local</span>
         </div>
         
         <div className="flex items-center gap-4 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
@@ -598,7 +598,7 @@ const App: React.FC = () => {
             </span>
             
             <a 
-                href="https://ml-order-explorer.vercel.app/" 
+                href="https://ml-api-explorer.vercel.app/" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-yellow-600 hover:text-yellow-700 font-semibold transition-colors group"

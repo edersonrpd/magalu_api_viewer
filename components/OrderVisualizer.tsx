@@ -77,21 +77,58 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
     setSelectedProduct(null);
   };
 
-  // Helper to map util colors to vibrant solid styles
-  const getVibrantStatusStyle = (color: string) => {
+  // --- Style Helpers ---
+
+  // 1. Main Status Theme (Vibrant Gradients for Header)
+  const getMainStatusTheme = (color: string) => {
+    const themes: Record<string, { badge: string, stripe: string }> = {
+      red: {
+        badge: 'bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-red-200 shadow-xl border-red-400',
+        stripe: 'from-red-500 to-pink-600'
+      },
+      emerald: {
+        badge: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-emerald-200 shadow-xl border-emerald-400',
+        stripe: 'from-emerald-500 to-teal-500'
+      },
+      green: {
+        badge: 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-green-200 shadow-xl border-green-400',
+        stripe: 'from-green-500 to-emerald-600'
+      },
+      blue: {
+        badge: 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-200 shadow-xl border-blue-400',
+        stripe: 'from-blue-500 to-indigo-600'
+      },
+      amber: {
+        badge: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-amber-200 shadow-xl border-amber-400',
+        stripe: 'from-amber-400 to-orange-500'
+      },
+      sky: {
+        badge: 'bg-gradient-to-r from-sky-400 to-blue-500 text-white shadow-sky-200 shadow-xl border-sky-400',
+        stripe: 'from-sky-400 to-blue-500'
+      },
+      gray: {
+        badge: 'bg-gradient-to-r from-gray-500 to-gray-600 text-white shadow-gray-200 shadow-xl border-gray-400',
+        stripe: 'from-gray-500 to-gray-600'
+      },
+    };
+    return themes[color] || themes.gray;
+  };
+
+  // 2. Compact Status Style (Solid colors for deliveries)
+  const getCompactStatusStyle = (color: string) => {
     const styles: Record<string, string> = {
-      red: 'bg-red-600 text-white border-red-700 shadow-md shadow-red-200',
-      emerald: 'bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-200',
-      green: 'bg-green-600 text-white border-green-700 shadow-md shadow-green-200',
-      blue: 'bg-blue-600 text-white border-blue-700 shadow-md shadow-blue-200',
-      amber: 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-200',
-      sky: 'bg-sky-500 text-white border-sky-600 shadow-md shadow-sky-200',
-      gray: 'bg-gray-500 text-white border-gray-600 shadow-md shadow-gray-200',
+      red: 'bg-red-600 text-white border-red-700 shadow-red-100',
+      emerald: 'bg-emerald-600 text-white border-emerald-700 shadow-emerald-100',
+      green: 'bg-green-600 text-white border-green-700 shadow-green-100',
+      blue: 'bg-blue-600 text-white border-blue-700 shadow-blue-100',
+      amber: 'bg-amber-500 text-white border-amber-600 shadow-amber-100',
+      sky: 'bg-sky-500 text-white border-sky-600 shadow-sky-100',
+      gray: 'bg-gray-500 text-white border-gray-600 shadow-gray-100',
     };
     return styles[color] || styles.gray;
   };
 
-  // Helper for delivery header backgrounds (lighter)
+  // 3. Delivery Header Backgrounds (Pastel)
   const getDeliveryHeaderStyle = (color: string) => {
     const styles: Record<string, string> = {
       red: 'bg-red-50 border-red-200',
@@ -118,7 +155,7 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
     return styles[color] || styles.gray;
   };
 
-  const vibrantStyle = getVibrantStatusStyle(orderStatus.color);
+  const mainStatusTheme = getMainStatusTheme(orderStatus.color);
 
   return (
     <div className="space-y-6 animate-fade-in font-sans relative">
@@ -133,8 +170,9 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
       )}
 
       {/* 1. Header Card - Redesigned for Prominence */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-500 to-blue-700"></div>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative group">
+        {/* Dynamic Colorful Stripe */}
+        <div className={`absolute top-0 left-0 w-2 h-full bg-gradient-to-b ${mainStatusTheme.stripe}`}></div>
         
         <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 pl-8">
           <div className="space-y-2">
@@ -162,9 +200,10 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
           </div>
           
           <div className="flex flex-col items-end">
-             <div className={`px-6 py-3 rounded-xl font-bold text-lg flex items-center gap-3 border-2 ${vibrantStyle} transition-transform hover:scale-105`}>
-                {React.cloneElement(orderStatus.icon as React.ReactElement<any>, { size: 24, strokeWidth: 2.5 })}
-                <span>{orderStatus.label}</span>
+             {/* Main Vibrant Status Badge */}
+             <div className={`px-8 py-4 rounded-2xl font-bold text-xl flex items-center gap-3 border ${mainStatusTheme.badge} transform transition-all duration-300 hover:scale-105 hover:-translate-y-1`}>
+                {React.cloneElement(orderStatus.icon as React.ReactElement<any>, { size: 28, strokeWidth: 2.5 })}
+                <span className="tracking-wide text-shadow-sm">{orderStatus.label}</span>
              </div>
           </div>
         </div>
@@ -244,7 +283,7 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
         const deliveryStatus = getStatusConfig(delivery.status);
         const headerStyle = getDeliveryHeaderStyle(deliveryStatus.color);
         const textStyle = getDeliveryTextStyle(deliveryStatus.color);
-        const vibrantDeliveryBadge = getVibrantStatusStyle(deliveryStatus.color).replace('shadow-md', 'shadow-sm').replace('text-lg', 'text-xs');
+        const compactBadgeStyle = getCompactStatusStyle(deliveryStatus.color);
 
         return (
           <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -274,8 +313,8 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
                     </div>
                  )}
                  
-                 <span className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-2 border ${vibrantDeliveryBadge}`}>
-                   {deliveryStatus.icon}
+                 <span className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 border shadow-sm ${compactBadgeStyle}`}>
+                   {React.cloneElement(deliveryStatus.icon as React.ReactElement<any>, { size: 14 })}
                    {deliveryStatus.label}
                  </span>
               </div>
