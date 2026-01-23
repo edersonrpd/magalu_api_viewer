@@ -112,19 +112,39 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 filteredOrders.map((order) => {
                   const status = getStatusConfig(order.status);
                   const customer = getCustomerInfo(order);
+                  const formattedTotal = formatValue(order.amounts.total, order.amounts.normalizer);
+                  
+                  // Rich HTML content for tooltip
+                  const tooltipHtml = `
+                    <div class="w-64 font-sans">
+                      <div class="flex items-center justify-between border-b border-gray-600 pb-2 mb-2">
+                         <span class="font-bold text-white text-base">#${order.code}</span>
+                         <span class="text-xs text-gray-400 font-mono">${formatDate(order.created_at).split(' ')[0]}</span>
+                      </div>
+                      <div class="space-y-2 text-sm">
+                         <div class="flex justify-between items-start gap-3">
+                            <span class="text-gray-400 text-xs uppercase font-semibold mt-0.5">Cliente</span>
+                            <span class="text-gray-100 font-medium text-right leading-tight">${customer.name}</span>
+                         </div>
+                         <div class="flex justify-between items-center gap-3">
+                            <span class="text-gray-400 text-xs uppercase font-semibold">Status</span>
+                            <span class="text-${status.color === 'gray' ? 'gray-300' : status.color + '-300'} font-bold bg-${status.color === 'gray' ? 'gray' : status.color}-900/50 px-2 py-0.5 rounded text-xs border border-${status.color === 'gray' ? 'gray' : status.color}-700/50">${status.label}</span>
+                         </div>
+                         <div class="flex justify-between items-baseline pt-2 border-t border-gray-700 mt-1">
+                            <span class="text-gray-400 text-xs uppercase font-semibold">Total</span>
+                            <span class="text-green-400 font-bold font-mono text-lg">${formattedTotal}</span>
+                         </div>
+                      </div>
+                    </div>
+                  `;
+
                   return (
                     <tr 
                       key={order.id} 
-                      className="hover:bg-gray-50 transition-colors group cursor-default"
+                      className="hover:bg-blue-50/40 transition-colors group cursor-default"
                       data-tooltip-id="order-row-tooltip"
-                      data-tooltip-html={`
-                        <div class="text-left">
-                          <p class="font-bold mb-1 border-b border-gray-500 pb-1">Pedido #${order.code}</p>
-                          <p><b>Cliente:</b> ${customer.name}</p>
-                          <p><b>Status:</b> ${status.label}</p>
-                          <p><b>Atualizado:</b> ${formatDate(order.updated_at)}</p>
-                        </div>
-                      `}
+                      data-tooltip-html={tooltipHtml}
+                      data-tooltip-place="top"
                     >
                       <td className="px-6 py-3 font-mono text-sm text-gray-600">
                         {order.code}
@@ -133,7 +153,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                         {formatDate(order.created_at)}
                       </td>
                       <td className="px-6 py-3">
-                        <p className="text-sm font-medium text-gray-900">{customer.name}</p>
+                        <p className="text-sm font-medium text-gray-900 line-clamp-1">{customer.name}</p>
                         <p className="text-xs text-gray-400">{customer.document_number}</p>
                       </td>
                       <td className="px-6 py-3 text-center">
@@ -142,7 +162,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                         </span>
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-gray-900 text-sm">
-                        {formatValue(order.amounts.total, order.amounts.normalizer)}
+                        {formattedTotal}
                       </td>
                       <td className="px-6 py-3 text-center">
                         <button
@@ -171,20 +191,21 @@ export const OrdersList: React.FC<OrdersListProps> = ({
         </div>
       </div>
       
-      {/* Tooltip Component */}
+      {/* Global Tooltip Component */}
       <Tooltip 
         id="order-row-tooltip" 
         style={{ 
-          backgroundColor: "#1f2937", 
-          color: "#fff", 
-          padding: "12px", 
-          borderRadius: "8px", 
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          zIndex: 50,
-          opacity: 1
+          backgroundColor: "#111827", // gray-900
+          color: "#f3f4f6", // gray-100
+          padding: "16px", 
+          borderRadius: "12px", 
+          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+          border: "1px solid #374151",
+          opacity: 1,
+          zIndex: 60
         }} 
-        place="top"
-        delayShow={300}
+        delayShow={200}
+        noArrow={false}
       />
     </div>
   );

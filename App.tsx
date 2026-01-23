@@ -243,7 +243,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navbar / Header */}
-      <header className="bg-magalu-blue shadow-lg sticky top-0 z-20">
+      <header className="bg-magalu-blue shadow-lg z-20">
         <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
           
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
