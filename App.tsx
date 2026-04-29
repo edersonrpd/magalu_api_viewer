@@ -7,7 +7,7 @@ import { ProductsList } from './components/ProductsList';
 import { ProductVisualizer } from './components/ProductVisualizer';
 import { fetchOrder, fetchOrdersList, fetchPortfolio, fetchProduct, fetchProductPrice, fetchProductStock } from './services/magaluService';
 import { Order, OrdersListResponse, PortfolioResponse, Product, PriceDetail, StockDetail } from './types';
-import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink } from 'lucide-react';
+import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink, Download } from 'lucide-react';
 
 type Tab = 'search' | 'list' | 'products';
 
@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
   const [productsLimit, setProductsLimit] = useState(20);
+  const [fetchAllProgress, setFetchAllProgress] = useState<{current: number} | null>(null);
   
   // Product Search State
   const [productSearchSku, setProductSearchSku] = useState('');
@@ -135,7 +136,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const limitToUse = newLimit || productsLimit;
+    const limitToUse = newLimit || Math.min(100, productsLimit); // cap limit for standard fetch
     if (newLimit && newLimit !== productsLimit) {
       setProductsLimit(newLimit);
     }
@@ -151,6 +152,66 @@ const App: React.FC = () => {
       setProductsError(err.message || 'Erro ao buscar lista de produtos.');
     } finally {
       setProductsLoading(false);
+    }
+  };
+
+  // --- PRODUCT FETCH ALL HANDLER ---
+  const handleProductsFetchAll = async () => {
+    if (!token) {
+      setProductsError('Por favor, insira o Token Magalu no topo da página.');
+      return;
+    }
+
+    setProductsLoading(true);
+    setProductsError(null);
+    setSearchedProducts([]); // Clear single search
+    setFetchAllProgress({ current: 0 });
+
+    try {
+      let offset = 0;
+      const limit = 100;
+      let allProducts: Product[] = [];
+      let hasNext = true;
+
+      while (hasNext) {
+        try {
+          const data = await fetchPortfolio(token, offset, limit);
+          if (data && data.results && data.results.length > 0) {
+            allProducts = [...allProducts, ...data.results];
+            setFetchAllProgress({ current: allProducts.length });
+            
+            if (data.meta?.links?.next) {
+              offset += limit;
+            } else {
+              hasNext = false;
+            }
+          } else {
+            hasNext = false;
+          }
+        } catch (err: any) {
+          // Some APIs return 404 when offset is beyond total items instead of an empty list
+          if (err.message && err.message.includes('404') && allProducts.length > 0) {
+            hasNext = false;
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      setProductsData({
+        results: allProducts,
+        meta: {
+          page: { limit: allProducts.length, offset: 0, count: allProducts.length, max_limit: limit },
+          // nullify links so pagination visually stops
+          links: { previous: null as any, next: null as any, self: '' }
+        }
+      });
+      setProductsLimit(allProducts.length);
+    } catch (err: any) {
+      setProductsError(err.message || 'Erro ao buscar todos os produtos.');
+    } finally {
+      setProductsLoading(false);
+      setFetchAllProgress(null);
     }
   };
 
@@ -476,14 +537,25 @@ const App: React.FC = () => {
                   {/* List Button */}
                   <div className="w-full md:w-auto">
                      <label className="block text-sm font-medium text-gray-700 mb-1 invisible">Ação</label>
-                     <button
-                        onClick={() => handleProductsFetch(0)}
-                        disabled={productsLoading || !token}
-                        className="w-full px-6 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
-                     >
-                       {productsLoading ? <RefreshCw size={18} className="animate-spin" /> : <List size={18} />}
-                       Listar Todos
-                     </button>
+                     <div className="flex flex-col sm:flex-row gap-2">
+                       <button
+                          onClick={() => handleProductsFetch(0)}
+                          disabled={productsLoading || !token}
+                          className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium flex items-center justify-center gap-2 flex-1"
+                       >
+                         {productsLoading && !fetchAllProgress ? <RefreshCw size={18} className="animate-spin" /> : <List size={18} />}
+                         Listar Página
+                       </button>
+                       <button
+                          onClick={handleProductsFetchAll}
+                          disabled={productsLoading || !token}
+                          className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium flex items-center justify-center gap-2 flex-1"
+                          title="Faz requisições até retornar todos os produtos"
+                       >
+                         {productsLoading && fetchAllProgress ? <RefreshCw size={18} className="animate-spin" /> : <Download size={18} />}
+                         {fetchAllProgress ? `Carregando (${fetchAllProgress.current})...` : 'Carregar Todos'}
+                       </button>
+                     </div>
                   </div>
                </div>
              </div>
@@ -555,6 +627,7 @@ const App: React.FC = () => {
                   loading={productsLoading}
                   limit={productsLimit}
                   onLimitChange={handleProductLimitChange}
+                  token={token}
                 />
                 <div className="mt-8">
                   <div className="flex justify-end mb-2">

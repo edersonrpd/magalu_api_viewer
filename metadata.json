@@ -1,5 +1,6 @@
 {
   "name": "Magalu API Explorer",
   "description": "A visual interface to query and view Magalu Seller Orders by ID using the Magalu API.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

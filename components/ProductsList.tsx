@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product, PaginationMeta } from '../types';
-import { formatDate, getStatusConfig } from '../utils';
+import { formatDate, getStatusConfig, formatValue } from '../utils';
+import { fetchProductPrice, fetchProductStock } from '../services/magaluService';
 import { 
-  ChevronLeft, ChevronRight, Search, Package, ImageOff, ExternalLink 
+  ChevronLeft, ChevronRight, Search, Package, ImageOff, ExternalLink, Download, Loader2
 } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 
@@ -13,6 +14,7 @@ interface ProductsListProps {
   loading: boolean;
   limit: number;
   onLimitChange: (limit: number) => void;
+  token: string;
 }
 
 export const ProductsList: React.FC<ProductsListProps> = ({ 
@@ -21,7 +23,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
   onPageChange, 
   loading,
   limit,
-  onLimitChange
+  onLimitChange,
+  token
 }) => {
   const [filter, setFilter] = useState('');
 
@@ -35,6 +38,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
   // Using links from meta to determine navigation availability
   // meta.page.offset is the starting index (0, 20, 40...)
   const currentPage = Math.floor(meta.page.offset / limit) + 1;
+  const totalItems = meta.page.count || 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
   const hasNextPage = !!meta.links.next;
   const hasPrevPage = !!meta.links.previous || meta.page.offset > 0;
 
@@ -57,6 +62,116 @@ export const ProductsList: React.FC<ProductsListProps> = ({
     onLimitChange(newLimit);
   };
 
+  const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [stocks, setStocks] = useState<Record<string, number | null>>({});
+
+  useEffect(() => {
+    const skusToFetch = filteredProducts.map(p => p.sku).filter(s => prices[s] === undefined || stocks[s] === undefined);
+    if (skusToFetch.length === 0) return;
+
+    let isMounted = true;
+    const fetchBatch = async () => {
+      const batchSize = 10;
+      for (let i = 0; i < skusToFetch.length; i += batchSize) {
+        if (!isMounted) break;
+        const batch = skusToFetch.slice(i, i + batchSize);
+        const results = await Promise.allSettled(
+          batch.map(async sku => {
+            try {
+              const [priceRes, stockRes] = await Promise.allSettled([
+                fetchProductPrice(sku, token),
+                fetchProductStock(sku, token)
+              ]);
+              const price = priceRes.status === 'fulfilled' ? (priceRes.value.results?.[0]?.price ?? null) : null;
+              
+              let stock = null;
+              if (stockRes.status === 'fulfilled' && stockRes.value.results?.length > 0) {
+                 const availableStock = stockRes.value.results.find((s: any) => s.type === 'AVAILABLE');
+                 stock = availableStock ? availableStock.quantity : stockRes.value.results[0].quantity;
+              }
+
+              return { sku, price, stock };
+            } catch {
+              return { sku, price: null, stock: null };
+            }
+          })
+        );
+        
+        if (isMounted) {
+          setPrices(prev => {
+            const next = { ...prev };
+            results.forEach(r => {
+              if (r.status === 'fulfilled') next[r.value.sku] = r.value.price;
+            });
+            return next;
+          });
+          setStocks(prev => {
+            const next = { ...prev };
+            results.forEach(r => {
+              if (r.status === 'fulfilled') next[r.value.sku] = r.value.stock;
+            });
+            return next;
+          });
+        }
+      }
+    };
+    fetchBatch();
+    return () => { isMounted = false; };
+  }, [filteredProducts, token, prices, stocks]);
+
+  const handleExportCSV = () => {
+    const headers = ['Produto', 'SKU', 'EAN', 'Marca', 'Status', 'Condição', 'Ativo', 'Preço', 'Estoque', 'Altura', 'Largura', 'Comprimento', 'Peso', 'Data Criação'];
+    const csvRows = [];
+    csvRows.push(headers.join(';'));
+
+    filteredProducts.forEach(product => {
+      const ean = product.identifiers?.find((i: any) => i.type?.toLowerCase() === 'ean')?.value || '';
+      let formattedPrice = '';
+      if (prices[product.sku] !== undefined && prices[product.sku] !== null) {
+         formattedPrice = (Number(prices[product.sku]) / 100).toFixed(2).replace('.', ',');
+      }
+
+      const stockVal = stocks[product.sku] !== undefined && stocks[product.sku] !== null ? stocks[product.sku] : '';
+
+      const dims = product.dimensions || [];
+      const pDim = dims.find((d: any) => d.name === 'product') || dims[0];
+      const altura = pDim?.height ? `${pDim.height.value} ${pDim.height.unit}` : '';
+      const largura = pDim?.width ? `${pDim.width.value} ${pDim.width.unit}` : '';
+      const comp = pDim?.length ? `${pDim.length.value} ${pDim.length.unit}` : '';
+      const peso = pDim?.weight ? `${pDim.weight.value} ${pDim.weight.unit}` : '';
+
+      const row = [
+        `"${product.title?.replace(/"/g, '""') || ''}"`,
+        `"${product.sku}"`,
+        `"${ean}"`,
+        `"${product.brand}"`,
+        `"${product.status}"`,
+        `"${product.condition}"`,
+        `"${product.active ? 'Sim' : 'Não'}"`,
+        `"${formattedPrice}"`,
+        `"${stockVal}"`,
+        `"${altura}"`,
+        `"${largura}"`,
+        `"${comp}"`,
+        `"${peso}"`,
+        `"${formatDate(product.created_at)}"`
+      ];
+      csvRows.push(row.join(';'));
+    });
+
+    const csvString = '\uFEFF' + csvRows.join('\n'); // Adding BOM for Excel UTF-8 display
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `produtos_${new Date().getTime()}.csv`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Top Controls: Search & Summary */}
@@ -76,21 +191,36 @@ export const ProductsList: React.FC<ProductsListProps> = ({
           <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-2 py-1 rounded border border-gray-200">
              <span className="hidden sm:inline">Itens:</span>
              <select 
-              value={limit} 
+              value={limit > 100 ? limit : limit} 
               onChange={handleLimitChange}
-              disabled={loading}
-              className="border-none bg-transparent text-sm font-medium focus:ring-0 cursor-pointer"
+              disabled={loading || !meta.links.next && !meta.links.previous && products.length > 100}
+              className="border-none bg-transparent text-sm font-medium focus:ring-0 cursor-pointer disabled:opacity-50"
              >
                <option value={10}>10</option>
                <option value={20}>20</option>
                <option value={50}>50</option>
                <option value={100}>100</option>
+               {limit > 100 && <option value={limit}>Todos ({limit})</option>}
              </select>
           </div>
 
           <div className="text-sm text-gray-600 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm whitespace-nowrap">
-            Exibindo <b>{meta.page.offset + 1}</b> - <b>{meta.page.offset + products.length}</b>
+            {(!meta.links.next && !meta.links.previous && products.length > 100) ? (
+              <>Mostrando <b>{filteredProducts.length}</b> de <b>{products.length}</b> itens</>
+            ) : (
+              <>Exibindo <b>{products.length > 0 ? meta.page.offset + 1 : 0}</b> - <b>{meta.page.offset + products.length}</b> itens</>
+            )}
           </div>
+          
+          <button 
+            onClick={handleExportCSV}
+            disabled={products.length === 0}
+            className="flex items-center gap-2 text-sm text-gray-700 bg-white hover:bg-gray-50 px-4 py-2 rounded-lg border border-gray-300 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportar dados para Excel (.csv)"
+          >
+            <Download size={16} />
+            <span className="hidden sm:inline">Exportar Planilha</span>
+          </button>
         </div>
       </div>
 
@@ -104,6 +234,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                 <th className="px-6 py-3">Produto</th>
                 <th className="px-6 py-3">Marca</th>
                 <th className="px-6 py-3 text-center">Status</th>
+                <th className="px-6 py-3 text-right">Preço</th>
+                <th className="px-6 py-3 text-right">Estoque</th>
                 <th className="px-6 py-3 text-right">Data Criação</th>
                 <th className="px-6 py-3 text-center">Link</th>
               </tr>
@@ -119,6 +251,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                     </td>
                     <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
                     <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded w-24 mx-auto"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20 ml-auto"></div></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16 ml-auto"></div></td>
                     <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24 ml-auto"></div></td>
                     <td className="px-6 py-4"><div className="h-4 w-4 bg-gray-200 rounded mx-auto"></div></td>
                   </tr>
@@ -164,6 +298,24 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                           {status.label}
                         </span>
                       </td>
+                      <td className="px-6 py-3 text-right text-sm text-gray-900 font-medium whitespace-nowrap">
+                        {prices[product.sku] === undefined ? (
+                          <Loader2 size={14} className="animate-spin inline-block text-gray-400" />
+                        ) : prices[product.sku] !== null ? (
+                          formatValue(prices[product.sku] as number, 100)
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-right text-sm text-gray-900 font-medium">
+                        {stocks[product.sku] === undefined ? (
+                          <Loader2 size={14} className="animate-spin inline-block text-gray-400" />
+                        ) : stocks[product.sku] !== null ? (
+                          stocks[product.sku]
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-3 text-right text-sm text-gray-600 font-mono">
                         {formatDate(product.created_at)}
                       </td>
@@ -202,9 +354,10 @@ export const ProductsList: React.FC<ProductsListProps> = ({
       </div>
 
       {/* Bottom Pagination Controls */}
-      <div className="bg-white px-6 py-4 border border-gray-200 rounded-xl shadow-sm flex items-center justify-between">
+      {(!(!meta.links.next && !meta.links.previous && products.length > 100)) && (
+      <div className="bg-white px-6 py-4 border border-gray-200 rounded-xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
          <div className="text-sm text-gray-500 font-medium">
-            Página {currentPage}
+            Página {currentPage} {hasNextPage ? '' : '(Última)'}
          </div>
 
          <div className="flex items-center gap-2">
@@ -235,6 +388,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({
             </button>
          </div>
       </div>
+      )}
 
       <Tooltip 
         id="product-tooltip" 
