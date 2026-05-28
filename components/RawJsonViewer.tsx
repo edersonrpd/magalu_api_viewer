@@ -3,14 +3,16 @@ import { Code, Copy, Check } from 'lucide-react';
 
 interface RawJsonViewerProps {
   data: any;
+  onShowToast?: (message: string) => void;
 }
 
-export const RawJsonViewer: React.FC<RawJsonViewerProps> = ({ data }) => {
+export const RawJsonViewer: React.FC<RawJsonViewerProps> = ({ data, onShowToast }) => {
   const [copied, setCopied] = React.useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(JSON.stringify(data, null, 2));
     setCopied(true);
+    if (onShowToast) onShowToast('JSON copiado!');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -23,7 +25,7 @@ export const RawJsonViewer: React.FC<RawJsonViewerProps> = ({ data }) => {
         </div>
         <button
           onClick={handleCopy}
-          className="text-xs flex items-center gap-1.5 px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-all"
+          className="text-xs flex items-center gap-1.5 px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800 focus-visible:ring-blue-500 focus-visible:outline-none"
         >
           {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
           {copied ? 'Copiado!' : 'Copiar'}

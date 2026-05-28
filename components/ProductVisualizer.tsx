@@ -39,7 +39,7 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
       {onBack && (
         <button 
           onClick={onBack}
-          className="text-sm text-blue-600 hover:text-blue-800 hover:underline mb-2 flex items-center gap-1"
+          className="text-sm text-blue-600 hover:text-blue-800 hover:underline mb-2 flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded px-1 -mx-1"
         >
           &larr; Voltar para a lista
         </button>
@@ -164,7 +164,7 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
                     href={marketplaceUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded px-1 -mx-1"
                   >
                     <ExternalLink size={16} /> Ver no Magazine Luiza
                   </a>
@@ -211,7 +211,7 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
                  </div>
               </div>
             ) : (
-              <p className="text-gray-400 italic">Informações de dimensão não disponíveis.</p>
+              <p className="text-gray-500 italic">Informações de dimensão não disponíveis.</p>
             )}
          </div>
 
@@ -249,7 +249,7 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
                     </div>
                  </div>
                ) : (
-                 <p className="text-gray-400 italic">Nenhum atributo adicional listado.</p>
+                 <p className="text-gray-500 italic">Nenhum atributo adicional listado.</p>
                )}
             </div>
          </div>

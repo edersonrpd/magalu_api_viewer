@@ -15,6 +15,7 @@ interface ProductsListProps {
   limit: number;
   onLimitChange: (limit: number) => void;
   token: string;
+  onShowToast?: (message: string) => void;
 }
 
 export const ProductsList: React.FC<ProductsListProps> = ({ 
@@ -24,7 +25,8 @@ export const ProductsList: React.FC<ProductsListProps> = ({
   loading,
   limit,
   onLimitChange,
-  token
+  token,
+  onShowToast
 }) => {
   const [filter, setFilter] = useState('');
 
@@ -170,6 +172,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    if (onShowToast) onShowToast(`Planilha exportada (${filteredProducts.length} itens)`);
   };
 
   return (
@@ -215,7 +218,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({
           <button 
             onClick={handleExportCSV}
             disabled={products.length === 0}
-            className="flex items-center gap-2 text-sm text-gray-700 bg-white hover:bg-gray-50 px-4 py-2 rounded-lg border border-gray-300 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 text-sm text-gray-700 bg-white hover:bg-gray-50 px-4 py-2 rounded-lg border border-gray-300 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
             title="Exportar dados para Excel (.csv)"
           >
             <Download size={16} />
@@ -325,8 +328,9 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                             href={marketplaceUrl} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors inline-block"
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors inline-block focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                             title="Ver no Magalu"
+                            aria-label="Ver produto no Magalu"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink size={18} />
@@ -340,7 +344,7 @@ export const ProductsList: React.FC<ProductsListProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center gap-2">
                       <Package size={32} className="opacity-50" />
                       <p>Nenhum produto encontrado nesta página.</p>
@@ -364,12 +368,13 @@ export const ProductsList: React.FC<ProductsListProps> = ({
             <button 
               onClick={handlePrev}
               disabled={!hasPrevPage || loading}
-              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none
                 ${!hasPrevPage || loading
-                  ? 'bg-gray-50 text-gray-300 cursor-not-allowed border border-gray-100'
+                  ? 'bg-gray-50 text-gray-500 cursor-not-allowed border border-gray-100'
                   : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 shadow-sm'
                 }
               `}
+              aria-label="Página anterior"
             >
               <ChevronLeft size={16} /> Anterior
             </button>
@@ -377,12 +382,13 @@ export const ProductsList: React.FC<ProductsListProps> = ({
             <button 
               onClick={handleNext}
               disabled={!hasNextPage || loading}
-              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+              className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none
                 ${!hasNextPage || loading
-                  ? 'bg-gray-50 text-gray-300 cursor-not-allowed border border-gray-100'
+                  ? 'bg-gray-50 text-gray-500 cursor-not-allowed border border-gray-100'
                   : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm border border-blue-600'
                 }
               `}
+              aria-label="Próxima página"
             >
               Próxima <ChevronRight size={16} />
             </button>

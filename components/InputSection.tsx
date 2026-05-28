@@ -50,7 +50,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onSearch, loading })
               <button
                 type="submit"
                 disabled={loading}
-                className={`px-6 py-2 rounded-lg text-white font-medium flex items-center gap-2 transition-all
+                className={`px-6 py-2 rounded-lg text-white font-medium flex items-center gap-2 transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none
                   ${loading 
                     ? 'bg-blue-400 cursor-not-allowed' 
                     : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/30'
@@ -65,7 +65,7 @@ export const InputSection: React.FC<InputSectionProps> = ({ onSearch, loading })
                 )}
               </button>
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
                Separe múltiplos códigos por vírgula. Removemos automaticamente prefixos "LU-" e sufixos de entrega.
             </p>
           </div>

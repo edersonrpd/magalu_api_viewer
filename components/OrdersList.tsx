@@ -66,14 +66,16 @@ export const OrdersList: React.FC<OrdersListProps> = ({
             <button 
               onClick={handlePrev}
               disabled={meta.page.offset === 0 || loading}
-              className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              aria-label="Página anterior"
             >
               <ChevronLeft size={18} />
             </button>
             <button 
               onClick={handleNext}
               disabled={(meta.page.offset + meta.page.limit) >= meta.page.count || loading}
-              className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              aria-label="Próxima página"
             >
               <ChevronRight size={18} />
             </button>
@@ -154,7 +156,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                       </td>
                       <td className="px-6 py-3">
                         <p className="text-sm font-medium text-gray-900 line-clamp-1">{customer.name}</p>
-                        <p className="text-xs text-gray-400">{customer.document_number}</p>
+                        <p className="text-xs text-gray-500">{customer.document_number}</p>
                       </td>
                       <td className="px-6 py-3 text-center">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${status.style}`}>
@@ -170,8 +172,9 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                             e.stopPropagation();
                             onViewOrder(order);
                           }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                           title="Ver Detalhes"
+                          aria-label="Ver detalhes do pedido"
                         >
                           <Eye size={18} />
                         </button>
@@ -181,7 +184,7 @@ export const OrdersList: React.FC<OrdersListProps> = ({
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     Nenhum pedido encontrado nesta página.
                   </td>
                 </tr>

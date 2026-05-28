@@ -163,7 +163,7 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
       {onBack && (
         <button 
           onClick={onBack}
-          className="text-sm text-blue-600 hover:text-blue-800 hover:underline mb-2 flex items-center gap-1"
+          className="text-sm text-blue-600 hover:text-blue-800 hover:underline mb-2 flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded px-1 -mx-1"
         >
           &larr; Voltar para a lista
         </button>
@@ -246,7 +246,7 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
                     <p className="text-xs text-gray-500 font-mono mt-0.5">CEP: {shippingAddress.zipcode}</p>
                   </>
                 ) : (
-                   <p className="text-sm text-gray-400 italic">Não informado</p>
+                   <p className="text-sm text-gray-500 italic">Não informado</p>
                 )}
              </div>
           </div>
@@ -448,7 +448,8 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
                  </h3>
                  <button 
                    onClick={closeModal}
-                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+                   aria-label="Fechar modal"
                  >
                    <X size={24} />
                  </button>
@@ -484,7 +485,7 @@ export const OrderVisualizer: React.FC<OrderVisualizerProps> = ({ order, token, 
               <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-end">
                 <button 
                   onClick={closeModal}
-                  className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                  className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                 >
                   Fechar
                 </button>

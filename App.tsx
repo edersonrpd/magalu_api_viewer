@@ -5,9 +5,10 @@ import { RawJsonViewer } from './components/RawJsonViewer';
 import { OrdersList } from './components/OrdersList';
 import { ProductsList } from './components/ProductsList';
 import { ProductVisualizer } from './components/ProductVisualizer';
+import { Toast } from './components/Toast';
 import { fetchOrder, fetchOrdersList, fetchPortfolio, fetchProduct, fetchProductPrice, fetchProductStock } from './services/magaluService';
 import { Order, OrdersListResponse, PortfolioResponse, Product, PriceDetail, StockDetail } from './types';
-import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink, Download } from 'lucide-react';
+import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink, Download, X, CheckCircle } from 'lucide-react';
 
 type Tab = 'search' | 'list' | 'products';
 
@@ -22,6 +23,9 @@ const App: React.FC = () => {
   
   // Global State
   const [token, setToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [tokenStatus, setTokenStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+  const [toastMessage, setToastMessage] = useState('');
 
   // Search Mode State (Orders)
   // Now supports multiple orders
@@ -57,6 +61,12 @@ const App: React.FC = () => {
     if (savedToken) setToken(savedToken);
   }, []);
 
+  const handleTokenError = (err: any) => {
+    if (err?.message && (err.message.includes('401') || err.message.includes('403'))) {
+      setTokenStatus('invalid');
+    }
+  };
+
   // --- ORDER SEARCH HANDLER ---
   const handleSearch = async (inputString: string) => {
     if (!token) {
@@ -84,16 +94,25 @@ const App: React.FC = () => {
 
       const successfulOrders: Order[] = [];
       const errors: string[] = [];
+      let hadAuthError = false;
 
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           successfulOrders.push(result.value);
         } else {
-          errors.push(`Pedido ${orderCodes[index]}: ${result.reason?.message || 'Erro desconhecido'}`);
+          const errMsg = result.reason?.message || 'Erro desconhecido';
+          errors.push(`Pedido ${orderCodes[index]}: ${errMsg}`);
+          if (errMsg.includes('401') || errMsg.includes('403')) hadAuthError = true;
         }
       });
 
       setOrders(successfulOrders);
+
+      if (hadAuthError) {
+        setTokenStatus('invalid');
+      } else if (successfulOrders.length > 0) {
+        setTokenStatus('valid');
+      }
 
       if (errors.length > 0) {
         setError(errors.join(' | '));
@@ -102,6 +121,7 @@ const App: React.FC = () => {
       }
 
     } catch (err: any) {
+      handleTokenError(err);
       setError(err.message || 'Ocorreu um erro fatal ao buscar os pedidos.');
     } finally {
       setLoading(false);
@@ -122,7 +142,9 @@ const App: React.FC = () => {
     try {
       const data = await fetchOrdersList(token, offset);
       setListData(data);
+      setTokenStatus('valid');
     } catch (err: any) {
+      handleTokenError(err);
       setListError(err.message || 'Erro ao buscar lista de pedidos.');
     } finally {
       setListLoading(false);
@@ -148,7 +170,9 @@ const App: React.FC = () => {
     try {
       const data = await fetchPortfolio(token, offset, limitToUse);
       setProductsData(data);
+      setTokenStatus('valid');
     } catch (err: any) {
+      handleTokenError(err);
       setProductsError(err.message || 'Erro ao buscar lista de produtos.');
     } finally {
       setProductsLoading(false);
@@ -207,7 +231,9 @@ const App: React.FC = () => {
         }
       });
       setProductsLimit(allProducts.length);
+      setTokenStatus('valid');
     } catch (err: any) {
+      handleTokenError(err);
       setProductsError(err.message || 'Erro ao buscar todos os produtos.');
     } finally {
       setProductsLoading(false);
@@ -264,16 +290,25 @@ const App: React.FC = () => {
 
       const successfulProducts: SearchedProductData[] = [];
       const errors: string[] = [];
+      let hadAuthError = false;
 
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
           successfulProducts.push(result.value);
         } else {
-          errors.push(`SKU ${skus[index]}: ${result.reason?.message || 'Erro ao carregar'}`);
+          const errMsg = result.reason?.message || 'Erro ao carregar';
+          errors.push(`SKU ${skus[index]}: ${errMsg}`);
+          if (errMsg.includes('401') || errMsg.includes('403')) hadAuthError = true;
         }
       });
 
       setSearchedProducts(successfulProducts);
+
+      if (hadAuthError) {
+        setTokenStatus('invalid');
+      } else if (successfulProducts.length > 0) {
+        setTokenStatus('valid');
+      }
 
       if (errors.length > 0) {
         setSingleProductError(errors.join(' | '));
@@ -282,6 +317,7 @@ const App: React.FC = () => {
       }
 
     } catch (err: any) {
+      handleTokenError(err);
       setSingleProductError(err.message || 'Erro fatal ao buscar produtos.');
     } finally {
       setSingleProductLoading(false);
@@ -321,7 +357,7 @@ const App: React.FC = () => {
             <div className="flex p-1 bg-blue-800/30 rounded-lg overflow-x-auto">
               <button
                 onClick={() => handleTabChange('search')}
-                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap ${
+                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none ${
                   activeTab === 'search' 
                     ? 'bg-white text-magalu-blue shadow-sm' 
                     : 'text-blue-100 hover:text-white hover:bg-white/10'
@@ -331,7 +367,7 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={() => handleTabChange('list')}
-                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap ${
+                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none ${
                   activeTab === 'list' 
                     ? 'bg-white text-magalu-blue shadow-sm' 
                     : 'text-blue-100 hover:text-white hover:bg-white/10'
@@ -341,7 +377,7 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={() => handleTabChange('products')}
-                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap ${
+                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none ${
                   activeTab === 'products' 
                     ? 'bg-white text-magalu-blue shadow-sm' 
                     : 'text-blue-100 hover:text-white hover:bg-white/10'
@@ -353,20 +389,56 @@ const App: React.FC = () => {
           </div>
           
           {/* Global Token Input */}
-          <div className="relative">
-             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-               <Key size={16} className="text-magalu-blue" />
-             </div>
-             <input 
-               type="password" 
-               value={token}
-               onChange={(e) => {
-                 setToken(e.target.value);
-                 localStorage.setItem('magalu_api_token', e.target.value);
-               }}
-               placeholder="Insira seu Token Magalu (Bearer) aqui para habilitar as consultas..."
-               className="w-full pl-10 pr-4 py-2.5 bg-white border-none rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:ring-4 focus:ring-magalu-yellow/50 transition-all shadow-sm"
-             />
+          <div className="space-y-2">
+            <div className="relative flex items-center">
+               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                 <Key size={16} className="text-magalu-blue" />
+               </div>
+               <input 
+                 type={showToken ? "text" : "password"}
+                 value={token}
+                 onChange={(e) => {
+                   setToken(e.target.value);
+                   localStorage.setItem('magalu_api_token', e.target.value);
+                   if (tokenStatus === 'invalid') setTokenStatus('idle');
+                 }}
+                 placeholder="Insira seu Token Magalu (Bearer) aqui para habilitar as consultas..."
+                 className="w-full pl-10 pr-[140px] py-2.5 bg-white border-none rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:ring-4 focus:ring-magalu-yellow/50 transition-all shadow-sm"
+               />
+               <div className="absolute right-1 flex items-center gap-1">
+                  {token && (
+                    <button 
+                      onClick={() => { setToken(''); localStorage.removeItem('magalu_api_token'); setTokenStatus('idle'); }} 
+                      className="px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 rounded-md hover:bg-red-50 transition-colors flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
+                      title="Limpar"
+                      aria-label="Limpar token"
+                    >
+                      <X size={14} /> Limpar
+                    </button>
+                  )}
+                 <button 
+                   onClick={() => setShowToken(!showToken)} 
+                   className="p-1.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
+                   title={showToken ? "Ocultar token" : "Mostrar token"}
+                   aria-label={showToken ? "Ocultar token" : "Mostrar token"}
+                 >
+                   {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                 </button>
+               </div>
+            </div>
+            
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs text-blue-100/80 font-medium">Armazenado apenas neste navegador</span>
+              {tokenStatus !== 'idle' && token && (
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold shadow-sm ${tokenStatus === 'valid' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                   {tokenStatus === 'valid' ? (
+                     <><CheckCircle size={12} /> Token ativo</>
+                   ) : (
+                     <><AlertCircle size={12} /> Token inválido</>
+                   )}
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
@@ -411,7 +483,7 @@ const App: React.FC = () => {
                       <div className="absolute -top-6 left-0 right-0 h-px bg-gray-300 border-t border-dashed border-gray-400"></div>
                     )}
                     <OrderVisualizer order={orderItem} token={token} />
-                    {showRawJson && <RawJsonViewer data={orderItem} />}
+                    {showRawJson && <RawJsonViewer data={orderItem} onShowToast={setToastMessage} />}
                   </div>
                 ))}
               </div>
@@ -423,7 +495,7 @@ const App: React.FC = () => {
                         <ShoppingBag size={48} className="text-magalu-blue" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-600">Nenhum pedido carregado</h3>
-                    <p className="text-gray-400">Insira o(s) Código(s) do Pedido abaixo para visualizar.</p>
+                    <p className="text-gray-500">Insira o(s) Código(s) do Pedido abaixo para visualizar.</p>
                 </div>
             )}
           </div>
@@ -438,7 +510,7 @@ const App: React.FC = () => {
                <button
                   onClick={() => handleListFetch(0)}
                   disabled={listLoading || !token}
-                  className="px-6 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium transition-colors flex items-center gap-2"
+                  className="px-6 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium transition-colors flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
                >
                  {listLoading ? <RefreshCw size={18} className="animate-spin" /> : <List size={18} />}
                  {listLoading ? 'Carregando...' : 'Atualizar Lista'}
@@ -464,7 +536,7 @@ const App: React.FC = () => {
                     onBack={() => setViewingOrderFromList(null)} 
                   />
                   <div className="mt-8">
-                    <RawJsonViewer data={viewingOrderFromList} />
+                    <RawJsonViewer data={viewingOrderFromList} onShowToast={setToastMessage} />
                   </div>
                </div>
             ) : (
@@ -485,7 +557,7 @@ const App: React.FC = () => {
                             <List size={48} className="text-magalu-blue" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-600">Lista vazia</h3>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           {!token ? "Insira seu Token no topo da página e clique em Atualizar." : "Clique em Atualizar Lista para carregar."}
                         </p>
                     </div>
@@ -521,7 +593,7 @@ const App: React.FC = () => {
                       <button 
                         type="submit"
                         disabled={singleProductLoading || !token}
-                        className="px-4 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 font-medium flex items-center gap-2"
+                        className="px-4 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 font-medium flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
                       >
                          {singleProductLoading ? <RefreshCw className="animate-spin" size={18}/> : <Search size={18} />}
                          Buscar
@@ -541,7 +613,7 @@ const App: React.FC = () => {
                        <button
                           onClick={() => handleProductsFetch(0)}
                           disabled={productsLoading || !token}
-                          className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium flex items-center justify-center gap-2 flex-1"
+                          className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 font-medium flex items-center justify-center gap-2 flex-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
                        >
                          {productsLoading && !fetchAllProgress ? <RefreshCw size={18} className="animate-spin" /> : <List size={18} />}
                          Listar Página
@@ -549,7 +621,7 @@ const App: React.FC = () => {
                        <button
                           onClick={handleProductsFetchAll}
                           disabled={productsLoading || !token}
-                          className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium flex items-center justify-center gap-2 flex-1"
+                          className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium flex items-center justify-center gap-2 flex-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
                           title="Faz requisições até retornar todos os produtos"
                        >
                          {productsLoading && fetchAllProgress ? <RefreshCw size={18} className="animate-spin" /> : <Download size={18} />}
@@ -577,7 +649,7 @@ const App: React.FC = () => {
                  <div className="flex justify-end mb-2">
                      <button 
                        onClick={() => setShowRawJson(!showRawJson)}
-                       className="text-xs text-gray-500 hover:text-blue-600 underline flex items-center gap-1"
+                       className="text-xs text-gray-500 hover:text-blue-600 underline flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none rounded"
                      >
                        {showRawJson ? <EyeOff size={12} /> : <Eye size={12} />}
                        {showRawJson ? 'Ocultar JSON' : 'Ver JSON Bruto'}
@@ -599,18 +671,18 @@ const App: React.FC = () => {
                             <div className="mt-4 space-y-4">
                                 <div>
                                 <p className="text-xs font-bold text-gray-500 mb-1">Produto ({item.product.sku})</p>
-                                <RawJsonViewer data={item.product} />
+                                <RawJsonViewer data={item.product} onShowToast={setToastMessage} />
                                 </div>
                                 {item.price && (
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 mb-1">Preço</p>
-                                    <RawJsonViewer data={item.price} />
+                                    <RawJsonViewer data={item.price} onShowToast={setToastMessage} />
                                 </div>
                                 )}
                                 {item.stock && (
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 mb-1">Estoque</p>
-                                    <RawJsonViewer data={item.stock} />
+                                    <RawJsonViewer data={item.stock} onShowToast={setToastMessage} />
                                 </div>
                                 )}
                             </div>
@@ -628,17 +700,18 @@ const App: React.FC = () => {
                   limit={productsLimit}
                   onLimitChange={handleProductLimitChange}
                   token={token}
+                  onShowToast={setToastMessage}
                 />
                 <div className="mt-8">
                   <div className="flex justify-end mb-2">
                     <button 
                       onClick={() => setShowRawJson(!showRawJson)}
-                      className="text-xs text-gray-500 hover:text-blue-600 underline"
+                      className="text-xs text-gray-500 hover:text-blue-600 underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none rounded"
                     >
                       {showRawJson ? 'Ocultar JSON' : 'Ver JSON Bruto'}
                     </button>
                   </div>
-                  {showRawJson && <RawJsonViewer data={productsData} />}
+                  {showRawJson && <RawJsonViewer data={productsData} onShowToast={setToastMessage} />}
                 </div>
               </>
             ) : (
@@ -648,7 +721,7 @@ const App: React.FC = () => {
                         <Package size={48} className="text-magalu-blue" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-600">Área de Produtos</h3>
-                    <p className="text-gray-400">
+                    <p className="text-gray-500">
                       Pesquise SKU(s) acima ou clique em "Listar Todos".
                     </p>
                 </div>
@@ -674,7 +747,7 @@ const App: React.FC = () => {
                 href="https://ml-api-explorer.vercel.app/" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-yellow-600 hover:text-yellow-700 font-semibold transition-colors group"
+                className="flex items-center gap-1.5 text-yellow-600 hover:text-yellow-700 font-semibold transition-colors group focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none rounded-sm px-1 -mx-1"
                 title="Ir para Mercado Livre API Explorer"
             >
                 Mercado Livre
@@ -687,7 +760,7 @@ const App: React.FC = () => {
                 href="https://shopee-api-viewer.vercel.app/" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-orange-500 hover:text-orange-600 font-semibold transition-colors group"
+                className="flex items-center gap-1.5 text-orange-500 hover:text-orange-600 font-semibold transition-colors group focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none rounded-sm px-1 -mx-1"
                 title="Ir para Shopee API Explorer"
             >
                 Shopee
@@ -695,6 +768,7 @@ const App: React.FC = () => {
             </a>
         </div>
       </footer>
+      <Toast message={toastMessage} onClose={() => setToastMessage('')} />
     </div>
   );
 };
