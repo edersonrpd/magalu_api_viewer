@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/magalu/:path*",
+      "destination": "https://api.magalu.com/:path*"
+    }
+  ]
+}

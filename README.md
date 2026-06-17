@@ -16,7 +16,9 @@ Navegador  ──►  /api/magalu/...  ──►  https://api.magalu.com/...
 
 - **Desenvolvimento (`npm run dev`):** o proxy é o `server.proxy` embutido do
   Vite (ver `vite.config.ts`).
-- **Produção (Vercel):** o proxy é a função serverless `api/magalu/[...path].ts`.
+- **Produção (Vercel):** o proxy é um *rewrite* nativo da Vercel (ver
+  `vercel.json`), que reencaminha `/api/magalu/*` para `https://api.magalu.com/*`
+  preservando caminho, query string e o header `Authorization`.
 
 O token de acesso é informado na própria interface, salvo apenas no
 `localStorage` do navegador e enviado no header `Authorization`, que o proxy
@@ -39,9 +41,9 @@ apenas repassa — ele não armazena nem inspeciona o token.
 
 ## Deploy (Vercel)
 
-O projeto é detectado automaticamente como app Vite. A pasta `api/` é servida
-como funções serverless. Nenhuma variável de ambiente é necessária — o token
-vem da interface.
+O projeto é detectado automaticamente como app Vite. O proxy para a Magalu é
+feito pelo rewrite em `vercel.json` (não há funções serverless). Nenhuma
+variável de ambiente é necessária — o token vem da interface.
 
 ```
 npm run build   # gera o build estático em dist/
