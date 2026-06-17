@@ -8,6 +8,18 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        // Em desenvolvimento (npm run dev) não há funções serverless rodando,
+        // então o próprio Vite faz o proxy para a Magalu. O caminho /api/magalu
+        // é o mesmo usado em produção (função em /api/magalu/[...path].ts no Vercel),
+        // mantendo o front idêntico nos dois ambientes.
+        proxy: {
+          '/api/magalu': {
+            target: 'https://api.magalu.com',
+            changeOrigin: true,
+            secure: true,
+            rewrite: (path) => path.replace(/^\/api\/magalu/, ''),
+          },
+        },
       },
       plugins: [react()],
       define: {

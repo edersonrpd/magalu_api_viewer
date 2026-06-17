@@ -1,20 +1,48 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Magalu API Explorer
 
-# Run and deploy your AI Studio app
+Interface visual para consultar e visualizar Pedidos e Produtos (Portfólio) do
+Seller da Magalu usando a API oficial.
 
-This contains everything you need to run your app locally.
+## Arquitetura
 
-View your app in AI Studio: https://ai.studio/apps/f4c292d3-f178-4c68-a66e-02fbcf7e57ae
+O navegador **não** chama `api.magalu.com` diretamente (isso seria bloqueado por
+CORS). Em vez disso, todas as requisições passam por um proxy de mesma origem em
+`/api/magalu/*`, que repassa a chamada para a Magalu:
 
-## Run Locally
+```
+Navegador  ──►  /api/magalu/...  ──►  https://api.magalu.com/...
+            (mesma origem)         (servidor → sem CORS)
+```
 
-**Prerequisites:**  Node.js
+- **Desenvolvimento (`npm run dev`):** o proxy é o `server.proxy` embutido do
+  Vite (ver `vite.config.ts`).
+- **Produção (Vercel):** o proxy é a função serverless `api/magalu/[...path].ts`.
 
+O token de acesso é informado na própria interface, salvo apenas no
+`localStorage` do navegador e enviado no header `Authorization`, que o proxy
+apenas repassa — ele não armazena nem inspeciona o token.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Rodando localmente
+
+**Pré-requisitos:** Node.js 18+
+
+1. Instale as dependências:
+   ```
+   npm install
+   ```
+2. Suba o app:
+   ```
+   npm run dev
+   ```
+3. Abra `http://localhost:3000`, cole seu Token Magalu (Bearer) no topo e
+   comece a consultar.
+
+## Deploy (Vercel)
+
+O projeto é detectado automaticamente como app Vite. A pasta `api/` é servida
+como funções serverless. Nenhuma variável de ambiente é necessária — o token
+vem da interface.
+
+```
+npm run build   # gera o build estático em dist/
+```
