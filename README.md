@@ -3,6 +3,28 @@
 Interface visual para consultar e visualizar Pedidos e Produtos (Portfólio) do
 Seller da Magalu usando a API oficial.
 
+## Funcionalidades
+
+- **Buscar Pedido:** consulta um ou vários pedidos por código (separados por
+  vírgula) e exibe cliente, endereço de entrega, pagamento, entregas com itens e
+  resumo financeiro.
+- **Listar Pedidos:** lista paginada dos pedidos do seller, com detalhe de cada
+  pedido.
+- **Produtos (Portfólio):** busca SKU(s) individualmente ou lista o portfólio
+  completo, exibindo dados do produto, **preço** e **estoque**. Inclui opção de
+  "Carregar Todos" via paginação automática.
+- **JSON bruto:** qualquer resultado pode ser inspecionado no formato bruto da
+  API, com cópia rápida.
+- **Token na interface:** o token Bearer é informado no topo, validado
+  visualmente e guardado apenas no `localStorage` do navegador.
+
+## Stack
+
+- React 19 + TypeScript
+- Vite 6 (build e dev server)
+- Tailwind CSS (via CDN) e ícones `lucide-react`
+- Deploy na Vercel (proxy via `vercel.json`)
+
 ## Arquitetura
 
 O navegador **não** chama `api.magalu.com` diretamente (isso seria bloqueado por
