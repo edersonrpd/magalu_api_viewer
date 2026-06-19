@@ -1,0 +1,88 @@
+/*
+ * Estilos globais do Magalu API Explorer.
+ *
+ * Este arquivo era referenciado pelo index.html mas não existia — por isso as
+ * animações (animate-fade-in / animate-fade-in-up) e o text-shadow-sm usados
+ * pelos componentes nunca funcionavam. Aqui eles passam a existir, junto de um
+ * polish visual leve e seguro.
+ */
+
+/* --- Animações de entrada (usadas em vários componentes) --- */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out both;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Utilitário de sombra de texto (usado nos badges de status vibrantes). */
+.text-shadow-sm {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+/* --- Polish global --- */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Seleção de texto na cor da marca (magalu-blue). */
+::selection {
+  background-color: rgba(0, 134, 255, 0.2);
+  color: #003a73;
+}
+
+/* Scrollbar discreta e on-brand. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c7d2da transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #c7d2da;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #0086ff;
+  background-clip: content-box;
+}
+
+/* Acessibilidade: respeita quem prefere menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
