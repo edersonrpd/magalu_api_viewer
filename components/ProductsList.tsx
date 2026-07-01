@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Product, PaginationMeta } from '../types';
 import { formatDate, getStatusConfig, formatValue } from '../utils';
 import { fetchProductPrice, fetchProductStock } from '../services/magaluService';
@@ -30,11 +30,11 @@ export const ProductsList: React.FC<ProductsListProps> = ({
 }) => {
   const [filter, setFilter] = useState('');
 
-  // Local filtering
-  const filteredProducts = products.filter(p => 
-    p.sku.toLowerCase().includes(filter.toLowerCase()) || 
+  // Local filtering (memoized so identity is stable across unrelated re-renders)
+  const filteredProducts = useMemo(() => products.filter(p =>
+    p.sku.toLowerCase().includes(filter.toLowerCase()) ||
     p.title.toLowerCase().includes(filter.toLowerCase())
-  );
+  ), [products, filter]);
 
   // Pagination Logic
   // Using links from meta to determine navigation availability
@@ -67,61 +67,95 @@ export const ProductsList: React.FC<ProductsListProps> = ({
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [stocks, setStocks] = useState<Record<string, number | null>>({});
 
-  useEffect(() => {
-    const skusToFetch = filteredProducts.map(p => p.sku).filter(s => prices[s] === undefined || stocks[s] === undefined);
-    if (skusToFetch.length === 0) return;
+  // Refs mirror the latest state synchronously, so the fetch loop below never
+  // has to depend on `prices`/`stocks` (which previously caused the effect to
+  // cancel/restart itself after every single batch and drop in-flight results).
+  const pricesRef = useRef(prices);
+  const stocksRef = useRef(stocks);
 
-    let isMounted = true;
-    const fetchBatch = async () => {
-      const batchSize = 10;
-      for (let i = 0; i < skusToFetch.length; i += batchSize) {
-        if (!isMounted) break;
-        const batch = skusToFetch.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map(async sku => {
-            try {
-              const [priceRes, stockRes] = await Promise.allSettled([
-                fetchProductPrice(sku, token),
-                fetchProductStock(sku, token)
-              ]);
-              const price = priceRes.status === 'fulfilled' ? (priceRes.value.results?.[0]?.price ?? null) : null;
-              
-              let stock = null;
-              if (stockRes.status === 'fulfilled' && stockRes.value.results?.length > 0) {
-                 const availableStock = stockRes.value.results.find((s: any) => s.type === 'AVAILABLE');
-                 stock = availableStock ? availableStock.quantity : stockRes.value.results[0].quantity;
-              }
+  const fetchPriceStockBatch = async (skus: string[], isMounted: () => boolean) => {
+    const batchSize = 10;
+    for (let i = 0; i < skus.length; i += batchSize) {
+      if (!isMounted()) break;
+      const batch = skus.slice(i, i + batchSize).filter(
+        sku => pricesRef.current[sku] === undefined || stocksRef.current[sku] === undefined
+      );
+      if (batch.length === 0) continue;
 
-              return { sku, price, stock };
-            } catch {
-              return { sku, price: null, stock: null };
+      const results = await Promise.allSettled(
+        batch.map(async sku => {
+          try {
+            const [priceRes, stockRes] = await Promise.allSettled([
+              fetchProductPrice(sku, token),
+              fetchProductStock(sku, token)
+            ]);
+            const price = priceRes.status === 'fulfilled' ? (priceRes.value.results?.[0]?.price ?? null) : null;
+
+            let stock = null;
+            if (stockRes.status === 'fulfilled' && stockRes.value.results?.length > 0) {
+               const availableStock = stockRes.value.results.find((s: any) => s.type === 'AVAILABLE');
+               stock = availableStock ? availableStock.quantity : stockRes.value.results[0].quantity;
             }
-          })
-        );
-        
-        if (isMounted) {
-          setPrices(prev => {
-            const next = { ...prev };
-            results.forEach(r => {
-              if (r.status === 'fulfilled') next[r.value.sku] = r.value.price;
-            });
-            return next;
-          });
-          setStocks(prev => {
-            const next = { ...prev };
-            results.forEach(r => {
-              if (r.status === 'fulfilled') next[r.value.sku] = r.value.stock;
-            });
-            return next;
-          });
-        }
-      }
-    };
-    fetchBatch();
-    return () => { isMounted = false; };
-  }, [filteredProducts, token, prices, stocks]);
 
-  const handleExportCSV = () => {
+            return { sku, price, stock };
+          } catch {
+            return { sku, price: null, stock: null };
+          }
+        })
+      );
+
+      if (!isMounted()) break;
+
+      const nextPrices = { ...pricesRef.current };
+      const nextStocks = { ...stocksRef.current };
+      results.forEach(r => {
+        if (r.status === 'fulfilled') {
+          nextPrices[r.value.sku] = r.value.price;
+          nextStocks[r.value.sku] = r.value.stock;
+        }
+      });
+      pricesRef.current = nextPrices;
+      stocksRef.current = nextStocks;
+      setPrices(nextPrices);
+      setStocks(nextStocks);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const skusToFetch = filteredProducts.map(p => p.sku).filter(
+      s => pricesRef.current[s] === undefined || stocksRef.current[s] === undefined
+    );
+    if (skusToFetch.length > 0) {
+      fetchPriceStockBatch(skusToFetch, () => mounted);
+    }
+    return () => { mounted = false; };
+  }, [filteredProducts, token]);
+
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      // Ensure every item has price/stock resolved before exporting, instead of
+      // trusting whatever the background loader has fetched so far (which, for
+      // large lists, may still be in progress when the user clicks "Exportar").
+      const missingSkus = filteredProducts
+        .map(p => p.sku)
+        .filter(sku => pricesRef.current[sku] === undefined || stocksRef.current[sku] === undefined);
+      if (missingSkus.length > 0) {
+        await fetchPriceStockBatch(missingSkus, () => true);
+      }
+      buildAndDownloadCSV(pricesRef.current, stocksRef.current);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const buildAndDownloadCSV = (
+    priceMap: Record<string, number | null>,
+    stockMap: Record<string, number | null>
+  ) => {
     const headers = ['Produto', 'SKU', 'EAN', 'Marca', 'Status', 'Condição', 'Ativo', 'Preço', 'Estoque', 'Altura', 'Largura', 'Comprimento', 'Peso', 'Data Criação'];
     const csvRows = [];
     csvRows.push(headers.join(';'));
@@ -129,11 +163,11 @@ export const ProductsList: React.FC<ProductsListProps> = ({
     filteredProducts.forEach(product => {
       const ean = product.identifiers?.find((i: any) => i.type?.toLowerCase() === 'ean')?.value || '';
       let formattedPrice = '';
-      if (prices[product.sku] !== undefined && prices[product.sku] !== null) {
-         formattedPrice = (Number(prices[product.sku]) / 100).toFixed(2).replace('.', ',');
+      if (priceMap[product.sku] !== undefined && priceMap[product.sku] !== null) {
+         formattedPrice = (Number(priceMap[product.sku]) / 100).toFixed(2).replace('.', ',');
       }
 
-      const stockVal = stocks[product.sku] !== undefined && stocks[product.sku] !== null ? stocks[product.sku] : '';
+      const stockVal = stockMap[product.sku] !== undefined && stockMap[product.sku] !== null ? stockMap[product.sku] : '';
 
       const dims = product.dimensions || [];
       const pDim = dims.find((d: any) => d.name === 'product') || dims[0];
@@ -215,14 +249,14 @@ export const ProductsList: React.FC<ProductsListProps> = ({
             )}
           </div>
           
-          <button 
+          <button
             onClick={handleExportCSV}
-            disabled={products.length === 0}
+            disabled={products.length === 0 || exporting}
             className="flex items-center gap-2 text-sm text-gray-700 bg-white hover:bg-gray-50 px-4 py-2 rounded-lg border border-gray-300 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:outline-none"
             title="Exportar dados para Excel (.csv)"
           >
-            <Download size={16} />
-            <span className="hidden sm:inline">Exportar Planilha</span>
+            {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            <span className="hidden sm:inline">{exporting ? 'Buscando dados...' : 'Exportar Planilha'}</span>
           </button>
         </div>
       </div>
