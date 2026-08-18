@@ -198,6 +198,7 @@ export interface Product {
   identifiers?: ProductIdentifier[];
   attributes?: NameValue[];
   datasheet?: NameValue[];
+  ncm?: string;
   [key: string]: any;
 }
 

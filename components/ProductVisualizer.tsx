@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Product, PriceDetail, StockDetail } from '../types';
-import { getStatusConfig, formatDate, formatValue } from '../utils';
+import { getStatusConfig, formatDate, formatValue, getProductNcm, formatNcm, isNcmKey } from '../utils';
 import { 
-  Box, Ruler, Tag, Calendar, Globe, ExternalLink, Barcode, Layers, ImageOff, TrendingDown, Clock, PackageCheck
+  Box, Ruler, Tag, Calendar, Globe, ExternalLink, Barcode, Layers, ImageOff, TrendingDown, Clock, PackageCheck, FileText
 } from 'lucide-react';
 
 interface ProductVisualizerProps {
@@ -18,6 +18,15 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
   
   // Find EAN/GTIN if available
   const ean = product.identifiers?.find(id => id.type === 'EAN' || id.type === 'GTIN')?.value;
+
+  // NCM (Nomenclatura Comum do Mercosul) do item, exibido na ficha técnica.
+  const ncmRaw = getProductNcm(product);
+  const ncm = ncmRaw ? formatNcm(ncmRaw) : undefined;
+
+  // O NCM ganha uma linha própria na ficha técnica, então é removido das listas
+  // genéricas para não aparecer duplicado.
+  const identifiers = product.identifiers?.filter(id => !isNcmKey(id.type)) ?? [];
+  const attributes = product.attributes?.filter(attr => !isNcmKey(attr.name)) ?? [];
   
   // Extract dimensions (usually the first element in the array for the product itself)
   const dims = product.dimensions?.[0];
@@ -105,6 +114,11 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
                       {ean && (
                         <span className="flex items-center gap-1 border-l border-gray-300 pl-3">
                            <Barcode size={14}/> EAN: {ean}
+                        </span>
+                      )}
+                      {ncm && (
+                        <span className="flex items-center gap-1 border-l border-gray-300 pl-3">
+                           <FileText size={14}/> NCM: {ncm}
                         </span>
                       )}
                    </div>
@@ -221,12 +235,23 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
               <Box size={18} className="text-blue-500" /> Ficha Técnica
             </h3>
             
+            <div className="mb-4 flex items-center justify-between gap-4 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+               <span className="flex items-center gap-1.5 text-xs font-bold text-blue-700 uppercase">
+                  <FileText size={14} /> NCM
+               </span>
+               {ncm ? (
+                 <span className="font-mono text-base font-medium text-gray-800">{ncm}</span>
+               ) : (
+                 <span className="text-sm text-gray-500 italic">Não informado</span>
+               )}
+            </div>
+
             <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-               {product.identifiers && product.identifiers.length > 0 && (
+               {identifiers.length > 0 && (
                  <div className="mb-4">
                     <h4 className="text-xs font-bold text-gray-400 mb-2">Identificadores</h4>
                     <div className="space-y-1">
-                      {product.identifiers.map((id, idx) => (
+                      {identifiers.map((id, idx) => (
                          <div key={idx} className="flex justify-between text-sm">
                             <span className="text-gray-600 font-medium">{id.type}:</span>
                             <span className="font-mono text-gray-800">{id.value}</span>
@@ -236,11 +261,11 @@ export const ProductVisualizer: React.FC<ProductVisualizerProps> = ({ product, p
                  </div>
                )}
 
-               {product.attributes && product.attributes.length > 0 ? (
+               {attributes.length > 0 ? (
                  <div>
                     <h4 className="text-xs font-bold text-gray-400 mb-2">Atributos</h4>
                     <div className="divide-y divide-gray-100">
-                      {product.attributes.map((attr, idx) => (
+                      {attributes.map((attr, idx) => (
                          <div key={idx} className="flex justify-between py-1.5 text-sm">
                             <span className="text-gray-600">{attr.name}</span>
                             <span className="text-gray-800 font-medium text-right ml-4">{attr.value}</span>

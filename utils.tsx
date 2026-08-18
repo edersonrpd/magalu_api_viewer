@@ -131,3 +131,65 @@ export const getCustomerInfo = (order: Order) => {
     phone_number: undefined
   };
 };
+// --- NCM (Nomenclatura Comum do Mercosul) ---
+
+// Uma chave é considerada NCM quando é exatamente "ncm" ou alguma variação
+// comum ("ncm_code", "codigo ncm", "código NCM", "NCM do produto", ...).
+export const isNcmKey = (key: string | undefined): boolean => {
+  if (!key) return false;
+  const normalized = key
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return /(^|[^a-z])ncm([^a-z]|$)/.test(normalized);
+};
+
+// A API pode devolver o NCM sem máscara (8 dígitos). Nesse caso aplicamos o
+// formato usual 0000.00.00; qualquer outro formato é mantido como veio.
+export const formatNcm = (raw: string): string => {
+  const value = raw.trim();
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 8) {
+    return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+  }
+  return value;
+};
+
+/**
+ * Procura o NCM do produto nos vários lugares em que a API do Magalu pode
+ * devolvê-lo: campo raiz, identificadores, atributos ou ficha técnica.
+ */
+export const getProductNcm = (product: any): string | undefined => {
+  if (!product) return undefined;
+
+  const fromValue = (value: any): string | undefined => {
+    if (typeof value === 'string' || typeof value === 'number') {
+      const text = String(value).trim();
+      return text ? text : undefined;
+    }
+    if (value && typeof value === 'object') {
+      return fromValue(value.value ?? value.code);
+    }
+    return undefined;
+  };
+
+  // 1) Campo na raiz do produto (ncm, ncm_code, ...).
+  const rootKey = Object.keys(product).find(key => isNcmKey(key));
+  const fromRoot = rootKey ? fromValue(product[rootKey]) : undefined;
+  if (fromRoot) return fromRoot;
+
+  // 2) Listas nome/valor: identificadores, atributos e ficha técnica.
+  const lists: any[][] = [
+    product.identifiers,
+    product.attributes,
+    product.datasheet
+  ].filter(Array.isArray);
+
+  for (const list of lists) {
+    const match = list.find((entry: any) => isNcmKey(entry?.type ?? entry?.name));
+    const value = fromValue(match?.value);
+    if (value) return value;
+  }
+
+  return undefined;
+};
