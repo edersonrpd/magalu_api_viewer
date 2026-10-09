@@ -242,3 +242,27 @@ export interface StockResponse {
   results: StockDetail[];
   meta: PaginationMeta;
 }
+// --- Category Types ---
+
+export interface Category {
+  id: string;
+  name: string | null;
+  parent_id?: string | null;
+  path?: string | null;
+  created_at: string;
+  created_by: string;
+  updated_at?: string | null;
+  updated_by?: string | null;
+}
+
+export interface CategoriesResponse {
+  meta: PaginationMeta;
+  results: Category[];
+}
+
+export interface CategoriesQuery {
+  id?: string;
+  name?: string;
+  offset?: number;
+  limit?: number;
+}

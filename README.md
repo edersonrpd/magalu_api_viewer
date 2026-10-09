@@ -13,6 +13,8 @@ Seller da Magalu usando a API oficial.
 - **Produtos (Portfólio):** busca SKU(s) individualmente ou lista o portfólio
   completo, exibindo dados do produto, **preço** e **estoque**. Inclui opção de
   "Carregar Todos" via paginação automática.
+- **Categorias:** consulta as categorias liberadas para o token
+  (`GET /seller/v1/portfolios/categories`), com filtro por nome/ID e paginação.
 - **JSON bruto:** qualquer resultado pode ser inspecionado no formato bruto da
   API, com cópia rápida.
 - **Token na interface:** o token Bearer é informado no topo, validado

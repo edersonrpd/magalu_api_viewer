@@ -1,4 +1,4 @@
-import { Order, OrdersListResponse, PortfolioResponse, Product, PriceResponse, StockResponse, ApiError } from '../types';
+import { Order, OrdersListResponse, PortfolioResponse, Product, PriceResponse, StockResponse, ApiError, CategoriesResponse, CategoriesQuery } from '../types';
 
 /**
  * Todas as chamadas passam por um proxy de mesma origem (/api/magalu) em vez de
@@ -240,5 +240,59 @@ export const fetchProductStock = async (sku: string, token: string): Promise<Sto
     console.error("Failed to fetch stock", error);
     // Return empty structure on error to not block UI
     return { results: [], meta: { page: { count: 0, limit: 0, offset: 0, max_limit: 0 }, links: { self: '' } } };
+  }
+};
+
+/**
+ * Fetches the categories released for the token (Portfolio categories).
+ * A API aceita filtro por `id` e/ou `name`; sem filtros, tenta listar tudo.
+ */
+export const fetchCategories = async (token: string, query: CategoriesQuery = {}): Promise<CategoriesResponse> => {
+  if (!token) throw new Error('O token de acesso é obrigatório.');
+
+  const { id, name, offset = 0, limit = 50 } = query;
+  const url = buildUrl('/seller/v1/portfolios/categories');
+  url.searchParams.append('_offset', offset.toString());
+  url.searchParams.append('_limit', limit.toString());
+  if (id?.trim()) url.searchParams.append('id', id.trim());
+  if (name?.trim()) url.searchParams.append('name', name.trim());
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Não autorizado (401). Verifique se seu Token está correto.');
+      }
+      if (response.status === 403) {
+        throw new Error('Acesso negado (403). O token não tem permissão para consultar categorias.');
+      }
+      if (response.status === 404) {
+        throw new Error('Categoria não encontrada (404).');
+      }
+      if (response.status === 400 || response.status === 422) {
+        let detail = '';
+        try {
+          const body = await response.json();
+          detail = body?.details?.[0]?.message || body?.message || '';
+        } catch { /* corpo não-JSON */ }
+        throw new Error(`Parâmetros inválidos (${response.status})${detail ? `: ${detail}` : ''}. Informe ID ou nome da categoria.`);
+      }
+      throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data as CategoriesResponse;
+  } catch (error: any) {
+    if (error.message === 'Failed to fetch') {
+      throw new Error(CONNECTION_ERROR);
+    }
+    throw error;
   }
 };

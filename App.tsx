@@ -5,12 +5,13 @@ import { RawJsonViewer } from './components/RawJsonViewer';
 import { OrdersList } from './components/OrdersList';
 import { ProductsList } from './components/ProductsList';
 import { ProductVisualizer } from './components/ProductVisualizer';
+import { CategoriesList } from './components/CategoriesList';
 import { Toast } from './components/Toast';
-import { fetchOrder, fetchOrdersList, fetchPortfolio, fetchProduct, fetchProductPrice, fetchProductStock } from './services/magaluService';
-import { Order, OrdersListResponse, PortfolioResponse, Product, PriceDetail, StockDetail } from './types';
-import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink, Download, X, CheckCircle } from 'lucide-react';
+import { fetchOrder, fetchOrdersList, fetchPortfolio, fetchProduct, fetchProductPrice, fetchProductStock, fetchCategories } from './services/magaluService';
+import { Order, OrdersListResponse, PortfolioResponse, Product, PriceDetail, StockDetail, CategoriesResponse } from './types';
+import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink, Download, X, CheckCircle, FolderTree } from 'lucide-react';
 
-type Tab = 'search' | 'list' | 'products';
+type Tab = 'search' | 'list' | 'products' | 'categories';
 
 interface SearchedProductData {
   product: Product;
@@ -52,6 +53,14 @@ const App: React.FC = () => {
   const [searchedProducts, setSearchedProducts] = useState<SearchedProductData[]>([]);
   const [singleProductLoading, setSingleProductLoading] = useState(false);
   const [singleProductError, setSingleProductError] = useState<string | null>(null);
+
+  // Categories Mode State
+  const [categoriesData, setCategoriesData] = useState<CategoriesResponse | null>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState('');
+  const [categoryName, setCategoryName] = useState('');
+  const CATEGORIES_LIMIT = 50;
 
   const [showRawJson, setShowRawJson] = useState(false);
 
@@ -324,6 +333,35 @@ const App: React.FC = () => {
     }
   };
 
+  // --- CATEGORIES HANDLER ---
+  const handleCategoriesFetch = async (offset: number = 0) => {
+    if (!token) {
+      setCategoriesError('Por favor, insira o Token Magalu no topo da página.');
+      return;
+    }
+
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    setShowRawJson(false);
+
+    try {
+      const data = await fetchCategories(token, {
+        id: categoryId,
+        name: categoryName,
+        offset,
+        limit: CATEGORIES_LIMIT
+      });
+      setCategoriesData(data);
+      setTokenStatus('valid');
+    } catch (err: any) {
+      handleTokenError(err);
+      setCategoriesData(null);
+      setCategoriesError(err.message || 'Erro ao buscar categorias.');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   const handleProductLimitChange = (newLimit: number) => {
     handleProductsFetch(0, newLimit);
   };
@@ -334,6 +372,7 @@ const App: React.FC = () => {
     setListError(null);
     setProductsError(null);
     setSingleProductError(null);
+    setCategoriesError(null);
     setShowRawJson(false);
   };
 
@@ -384,6 +423,16 @@ const App: React.FC = () => {
                 }`}
               >
                 <Package size={16} /> Produtos
+              </button>
+              <button
+                onClick={() => handleTabChange('categories')}
+                className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-all whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none ${
+                  activeTab === 'categories' 
+                    ? 'bg-white text-magalu-blue shadow-sm' 
+                    : 'text-blue-100 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <FolderTree size={16} /> Categorias
               </button>
             </div>
           </div>
@@ -724,6 +773,96 @@ const App: React.FC = () => {
                     <p className="text-gray-500">
                       Pesquise SKU(s) acima ou clique em "Listar Todos".
                     </p>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
+        {/* --- TAB: CATEGORIES --- */}
+        {activeTab === 'categories' && (
+          <div className="animate-fade-in">
+            <form
+              onSubmit={(e) => { e.preventDefault(); handleCategoriesFetch(0); }}
+              className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100"
+            >
+              <div className="flex flex-col md:flex-row items-end gap-4">
+                <div className="w-full md:flex-1">
+                  <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                  <input
+                    id="categoryName"
+                    type="text"
+                    value={categoryName}
+                    onChange={(e) => setCategoryName(e.target.value)}
+                    placeholder="Ex: Smartphone"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-magalu-blue focus:border-magalu-blue"
+                  />
+                </div>
+                <div className="w-full md:flex-1">
+                  <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 mb-1">ID</label>
+                  <input
+                    id="categoryId"
+                    type="text"
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    placeholder="UUID da categoria"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-magalu-blue focus:border-magalu-blue"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={categoriesLoading || !token}
+                  className="px-6 py-2 bg-magalu-blue text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed font-medium flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
+                >
+                  {categoriesLoading ? <RefreshCw size={18} className="animate-spin" /> : <Search size={18} />}
+                  Consultar
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Deixe os campos vazios para listar as categorias liberadas para o token.
+              </p>
+            </form>
+
+            {categoriesError && (
+              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-start gap-3">
+                <AlertCircle className="text-red-500 mt-0.5" size={20} />
+                <div>
+                  <h3 className="text-red-800 font-medium">Erro ao consultar categorias</h3>
+                  <p className="text-red-700 text-sm mt-1">{categoriesError}</p>
+                </div>
+              </div>
+            )}
+
+            {categoriesData ? (
+              <>
+                <CategoriesList
+                  categories={categoriesData.results || []}
+                  meta={categoriesData.meta}
+                  limit={CATEGORIES_LIMIT}
+                  loading={categoriesLoading}
+                  onPageChange={handleCategoriesFetch}
+                  onShowToast={setToastMessage}
+                />
+                <div className="mt-8">
+                  <div className="flex justify-end mb-2">
+                    <button
+                      onClick={() => setShowRawJson(!showRawJson)}
+                      className="text-xs text-gray-500 hover:text-blue-600 underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-magalu-blue focus-visible:outline-none rounded"
+                    >
+                      {showRawJson ? 'Ocultar JSON' : 'Ver JSON Bruto'}
+                    </button>
+                  </div>
+                  {showRawJson && <RawJsonViewer data={categoriesData} onShowToast={setToastMessage} />}
+                </div>
+              </>
+            ) : (
+              !categoriesLoading && !categoriesError && (
+                <div className="text-center py-20 opacity-50">
+                  <div className="inline-block p-6 bg-white shadow-sm border border-gray-100 rounded-full mb-4">
+                    <FolderTree size={48} className="text-magalu-blue" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-600">Categorias liberadas</h3>
+                  <p className="text-gray-500">Clique em Consultar para carregar as categorias do token.</p>
                 </div>
               )
             )}
