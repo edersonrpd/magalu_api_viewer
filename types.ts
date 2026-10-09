@@ -266,3 +266,40 @@ export interface CategoriesQuery {
   offset?: number;
   limit?: number;
 }
+
+export interface CategoryHierarchyQuery {
+  rootOnly?: boolean;
+  categoryId?: string;
+  parentId?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export type AttributeRequired = 'required' | 'optional' | 'recommended';
+
+export interface CategoryAttribute {
+  id: string;
+  name: string;
+  display_name: string;
+  type: string;
+  required: string;
+  active: boolean;
+  position?: number;
+  choices?: string[] | null;
+  example?: string | null;
+  is_inherited?: boolean | null;
+  required_is_default?: boolean | null;
+  required_matching?: boolean;
+  variation?: boolean;
+}
+
+export interface CategoryAttributesQuery {
+  required?: AttributeRequired | '';
+  offset?: number;
+  limit?: number;
+}
+
+export interface CategoryAttributesResponse {
+  meta: PaginationMeta;
+  results: CategoryAttribute[];
+}

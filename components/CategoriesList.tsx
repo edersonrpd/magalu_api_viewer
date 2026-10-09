@@ -3,6 +3,15 @@ import { Category, PaginationMeta } from '../types';
 import { formatDate } from '../utils';
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 
+export type CategoryAction = 'children' | 'subtree' | 'attributes' | 'datasheet';
+
+const ACTIONS: { action: CategoryAction; label: string; title: string }[] = [
+  { action: 'children', label: 'Filhos', title: 'Listar filhos diretos' },
+  { action: 'subtree', label: 'Subárvore', title: 'Listar a categoria e todos os descendentes' },
+  { action: 'attributes', label: 'Atributos', title: 'Ver atributos da categoria' },
+  { action: 'datasheet', label: 'Ficha técnica', title: 'Ver atributos da ficha técnica' }
+];
+
 interface CategoriesListProps {
   categories: Category[];
   meta?: PaginationMeta;
@@ -10,6 +19,7 @@ interface CategoriesListProps {
   loading: boolean;
   onPageChange: (offset: number) => void;
   onShowToast?: (message: string) => void;
+  onAction: (category: Category, action: CategoryAction) => void;
 }
 
 export const CategoriesList: React.FC<CategoriesListProps> = ({
@@ -18,7 +28,8 @@ export const CategoriesList: React.FC<CategoriesListProps> = ({
   limit,
   loading,
   onPageChange,
-  onShowToast
+  onShowToast,
+  onAction
 }) => {
   const offset = meta?.page?.offset ?? 0;
   const hasNext = !!meta?.links?.next;
@@ -48,12 +59,13 @@ export const CategoriesList: React.FC<CategoriesListProps> = ({
               <th className="px-6 py-3">Pai</th>
               <th className="px-6 py-3">Caminho</th>
               <th className="px-6 py-3">Atualizado</th>
+              <th className="px-6 py-3">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {categories.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Nenhuma categoria retornada.</td>
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Nenhuma categoria retornada.</td>
               </tr>
             )}
             {categories.map(cat => (
@@ -72,6 +84,18 @@ export const CategoriesList: React.FC<CategoriesListProps> = ({
                 <td className="px-6 py-3 font-mono text-xs text-gray-600">{cat.parent_id || '—'}</td>
                 <td className="px-6 py-3 text-gray-600">{cat.path || '—'}</td>
                 <td className="px-6 py-3 text-gray-500 whitespace-nowrap">{formatDate(cat.updated_at || cat.created_at)}</td>
+                <td className="px-6 py-3 whitespace-nowrap space-x-1">
+                  {ACTIONS.map(a => (
+                    <button
+                      key={a.action}
+                      onClick={() => onAction(cat, a.action)}
+                      title={a.title}
+                      className="px-2 py-1 text-xs border border-gray-200 rounded text-magalu-blue hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -1,4 +1,4 @@
-import { Order, OrdersListResponse, PortfolioResponse, Product, PriceResponse, StockResponse, ApiError, CategoriesResponse, CategoriesQuery } from '../types';
+import { Order, OrdersListResponse, PortfolioResponse, Product, PriceResponse, StockResponse, ApiError, CategoriesResponse, CategoriesQuery, CategoryHierarchyQuery, CategoryAttributesQuery, CategoryAttributesResponse } from '../types';
 
 /**
  * Todas as chamadas passam por um proxy de mesma origem (/api/magalu) em vez de
@@ -243,19 +243,21 @@ export const fetchProductStock = async (sku: string, token: string): Promise<Sto
   }
 };
 
-/**
- * Fetches the categories released for the token (Portfolio categories).
- * A API aceita filtro por `id` e/ou `name`; sem filtros, tenta listar tudo.
- */
-export const fetchCategories = async (token: string, query: CategoriesQuery = {}): Promise<CategoriesResponse> => {
+// GET genérico dos endpoints de categorias: monta a query (ignorando vazios),
+// envia o token e traduz os erros HTTP mais comuns.
+const getCategoriesApi = async <T>(
+  path: string,
+  params: Record<string, string | number | boolean | undefined>,
+  token: string,
+  badRequestHint = ''
+): Promise<T> => {
   if (!token) throw new Error('O token de acesso é obrigatório.');
 
-  const { id, name, offset = 0, limit = 50 } = query;
-  const url = buildUrl('/seller/v1/portfolios/categories');
-  url.searchParams.append('_offset', offset.toString());
-  url.searchParams.append('_limit', limit.toString());
-  if (id?.trim()) url.searchParams.append('id', id.trim());
-  if (name?.trim()) url.searchParams.append('name', name.trim());
+  const url = buildUrl(path);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === '') return;
+    url.searchParams.append(key, String(value).trim());
+  });
 
   try {
     const response = await fetch(url.toString(), {
@@ -282,17 +284,60 @@ export const fetchCategories = async (token: string, query: CategoriesQuery = {}
           const body = await response.json();
           detail = body?.details?.[0]?.message || body?.message || '';
         } catch { /* corpo não-JSON */ }
-        throw new Error(`Parâmetros inválidos (${response.status})${detail ? `: ${detail}` : ''}. Informe ID ou nome da categoria.`);
+        throw new Error(`Parâmetros inválidos (${response.status})${detail ? `: ${detail}` : ''}.${badRequestHint}`);
       }
       throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
-    return data as CategoriesResponse;
+    return (await response.json()) as T;
   } catch (error: any) {
     if (error.message === 'Failed to fetch') {
       throw new Error(CONNECTION_ERROR);
     }
     throw error;
   }
+};
+
+/**
+ * Busca categoria por id e/ou nome (ao menos um é exigido pela API).
+ */
+export const fetchCategories = (token: string, query: CategoriesQuery = {}): Promise<CategoriesResponse> =>
+  getCategoriesApi<CategoriesResponse>(
+    '/seller/v1/portfolios/categories',
+    { _offset: query.offset ?? 0, _limit: query.limit ?? 50, id: query.id, name: query.name },
+    token,
+    ' Informe ID ou nome da categoria.'
+  );
+
+/**
+ * Navega pela árvore de categorias: raiz, filhos diretos, subárvore ou tudo.
+ */
+export const fetchCategoryHierarchy = (token: string, query: CategoryHierarchyQuery = {}): Promise<CategoriesResponse> =>
+  getCategoriesApi<CategoriesResponse>(
+    '/seller/v1/portfolios/categories/hierarchy',
+    {
+      _offset: query.offset ?? 0,
+      _limit: query.limit ?? 50,
+      root_only: query.rootOnly ? true : undefined,
+      category_id: query.categoryId,
+      parent_id: query.parentId
+    },
+    token
+  );
+
+/**
+ * Atributos (`attributes`) ou ficha técnica (`datasheet`) de uma categoria.
+ */
+export const fetchCategoryAttributes = (
+  token: string,
+  categoryId: string,
+  kind: 'attributes' | 'datasheet',
+  query: CategoryAttributesQuery = {}
+): Promise<CategoryAttributesResponse> => {
+  if (!categoryId) throw new Error('O ID da categoria é obrigatório.');
+  return getCategoriesApi<CategoryAttributesResponse>(
+    `/seller/v1/portfolios/categories/${encodeURIComponent(categoryId)}/${kind}`,
+    { _offset: query.offset ?? 0, _limit: query.limit ?? 50, required: query.required },
+    token
+  );
 };

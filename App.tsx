@@ -5,13 +5,19 @@ import { RawJsonViewer } from './components/RawJsonViewer';
 import { OrdersList } from './components/OrdersList';
 import { ProductsList } from './components/ProductsList';
 import { ProductVisualizer } from './components/ProductVisualizer';
-import { CategoriesList } from './components/CategoriesList';
+import { CategoriesList, CategoryAction } from './components/CategoriesList';
+import { CategoryAttributesPanel } from './components/CategoryAttributesPanel';
 import { Toast } from './components/Toast';
-import { fetchOrder, fetchOrdersList, fetchPortfolio, fetchProduct, fetchProductPrice, fetchProductStock, fetchCategories } from './services/magaluService';
-import { Order, OrdersListResponse, PortfolioResponse, Product, PriceDetail, StockDetail, CategoriesResponse } from './types';
+import { fetchOrder, fetchOrdersList, fetchPortfolio, fetchProduct, fetchProductPrice, fetchProductStock, fetchCategories, fetchCategoryHierarchy } from './services/magaluService';
+import { Order, OrdersListResponse, PortfolioResponse, Product, PriceDetail, StockDetail, CategoriesResponse, Category, CategoryHierarchyQuery } from './types';
 import { ShoppingBag, AlertCircle, Eye, EyeOff, List, Search, Key, Package, RefreshCw, Box, ExternalLink, Download, X, CheckCircle, FolderTree } from 'lucide-react';
 
 type Tab = 'search' | 'list' | 'products' | 'categories';
+
+// Última consulta de categorias, repetida ao paginar.
+type CategoriesQueryState =
+  | { mode: 'search' }
+  | { mode: 'hierarchy'; query: CategoryHierarchyQuery };
 
 interface SearchedProductData {
   product: Product;
@@ -60,6 +66,9 @@ const App: React.FC = () => {
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState('');
   const [categoryName, setCategoryName] = useState('');
+  const [categoriesQuery, setCategoriesQuery] = useState<CategoriesQueryState>({ mode: 'hierarchy', query: {} });
+  const [categoriesContext, setCategoriesContext] = useState('Todas as categorias');
+  const [categoryDetail, setCategoryDetail] = useState<{ category: Category; kind: 'attributes' | 'datasheet' } | null>(null);
   const CATEGORIES_LIMIT = 50;
 
   const [showRawJson, setShowRawJson] = useState(false);
@@ -333,8 +342,8 @@ const App: React.FC = () => {
     }
   };
 
-  // --- CATEGORIES HANDLER ---
-  const handleCategoriesFetch = async (offset: number = 0) => {
+  // --- CATEGORIES HANDLERS ---
+  const runCategoriesQuery = async (state: CategoriesQueryState, offset: number = 0, context?: string) => {
     if (!token) {
       setCategoriesError('Por favor, insira o Token Magalu no topo da página.');
       return;
@@ -343,14 +352,13 @@ const App: React.FC = () => {
     setCategoriesLoading(true);
     setCategoriesError(null);
     setShowRawJson(false);
+    setCategoriesQuery(state);
+    if (context) setCategoriesContext(context);
 
     try {
-      const data = await fetchCategories(token, {
-        id: categoryId,
-        name: categoryName,
-        offset,
-        limit: CATEGORIES_LIMIT
-      });
+      const data = state.mode === 'search'
+        ? await fetchCategories(token, { id: categoryId, name: categoryName, offset, limit: CATEGORIES_LIMIT })
+        : await fetchCategoryHierarchy(token, { ...state.query, offset, limit: CATEGORIES_LIMIT });
       setCategoriesData(data);
       setTokenStatus('valid');
     } catch (err: any) {
@@ -359,6 +367,30 @@ const App: React.FC = () => {
       setCategoriesError(err.message || 'Erro ao buscar categorias.');
     } finally {
       setCategoriesLoading(false);
+    }
+  };
+
+  // Submit do formulário: com nome/ID usa a busca; sem nada, lista toda a árvore.
+  const handleCategoriesSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCategoryDetail(null);
+    if (categoryId.trim() || categoryName.trim()) {
+      runCategoriesQuery({ mode: 'search' }, 0, `Busca: ${[categoryName.trim(), categoryId.trim()].filter(Boolean).join(' / ')}`);
+    } else {
+      runCategoriesQuery({ mode: 'hierarchy', query: {} }, 0, 'Todas as categorias');
+    }
+  };
+
+  const handleCategoryAction = (category: Category, action: CategoryAction) => {
+    const name = category.name || category.id;
+    if (action === 'children') {
+      setCategoryDetail(null);
+      runCategoriesQuery({ mode: 'hierarchy', query: { parentId: category.id } }, 0, `Filhos de ${name}`);
+    } else if (action === 'subtree') {
+      setCategoryDetail(null);
+      runCategoriesQuery({ mode: 'hierarchy', query: { categoryId: category.id } }, 0, `Subárvore de ${name}`);
+    } else {
+      setCategoryDetail({ category, kind: action });
     }
   };
 
@@ -783,7 +815,7 @@ const App: React.FC = () => {
         {activeTab === 'categories' && (
           <div className="animate-fade-in">
             <form
-              onSubmit={(e) => { e.preventDefault(); handleCategoriesFetch(0); }}
+              onSubmit={handleCategoriesSubmit}
               className="bg-white rounded-xl shadow-md p-6 mb-6 border border-gray-100"
             >
               <div className="flex flex-col md:flex-row items-end gap-4">
@@ -818,9 +850,19 @@ const App: React.FC = () => {
                   Consultar
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-2">
-                Deixe os campos vazios para listar as categorias liberadas para o token.
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => { setCategoryDetail(null); runCategoriesQuery({ mode: 'hierarchy', query: { rootOnly: true } }, 0, 'Categorias raiz'); }}
+                  disabled={categoriesLoading || !token}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium hover:bg-blue-100 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-magalu-blue focus-visible:outline-none"
+                >
+                  Começar pelas raízes
+                </button>
+                <p className="text-xs text-gray-400">
+                  Não sabe o nome? Navegue pela árvore (Filhos / Subárvore) ou deixe vazio e clique em Consultar para listar todas.
+                </p>
+              </div>
             </form>
 
             {categoriesError && (
@@ -833,15 +875,26 @@ const App: React.FC = () => {
               </div>
             )}
 
+            {categoryDetail && (
+              <CategoryAttributesPanel
+                category={categoryDetail.category}
+                kind={categoryDetail.kind}
+                token={token}
+                onClose={() => setCategoryDetail(null)}
+              />
+            )}
+
             {categoriesData ? (
               <>
+                <p className="text-sm text-gray-500 mb-2">Exibindo: <span className="font-medium text-gray-700">{categoriesContext}</span></p>
                 <CategoriesList
                   categories={categoriesData.results || []}
                   meta={categoriesData.meta}
                   limit={CATEGORIES_LIMIT}
                   loading={categoriesLoading}
-                  onPageChange={handleCategoriesFetch}
+                  onPageChange={(offset) => runCategoriesQuery(categoriesQuery, offset)}
                   onShowToast={setToastMessage}
+                  onAction={handleCategoryAction}
                 />
                 <div className="mt-8">
                   <div className="flex justify-end mb-2">
@@ -862,7 +915,7 @@ const App: React.FC = () => {
                     <FolderTree size={48} className="text-magalu-blue" />
                   </div>
                   <h3 className="text-lg font-medium text-gray-600">Categorias liberadas</h3>
-                  <p className="text-gray-500">Clique em Consultar para carregar as categorias do token.</p>
+                  <p className="text-gray-500">Use "Começar pelas raízes" ou Consultar para carregar as categorias.</p>
                 </div>
               )
             )}
